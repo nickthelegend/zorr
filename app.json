@@ -16,7 +16,13 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-font",
-      "./plugins/with-openssl-libs"
+      "./plugins/with-openssl-libs",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Zorr uses your location to capture real-world territory as you walk."
+        }
+      ]
     ]
   }
 }

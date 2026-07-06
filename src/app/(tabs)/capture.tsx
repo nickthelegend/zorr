@@ -1,38 +1,24 @@
+import * as Location from 'expo-location'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Activity, Flag, Footprints, Gauge, MapPin } from 'lucide-react-native'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { WebView } from 'react-native-webview'
 
+import { mapHtml, tileKey } from '../../features/capture/map-html'
 import { colors, fonts, radius } from '../../theme'
 
-const GRID_COLS = 6
-const GRID_ROWS = 10
+type Fix = { lat: number; lng: number; speed: number; accuracy: number }
 
-// Placeholder "captured" tiles until the live map + on-chain territory is wired.
-const CAPTURED = new Set([8, 9, 14, 15, 20])
-const RIVAL = new Set([3, 4, 33, 39])
-
-function TileGrid() {
-  const tiles = Array.from({ length: GRID_COLS * GRID_ROWS })
-  return (
-    <View style={styles.grid}>
-      {tiles.map((_, i) => {
-        const mine = CAPTURED.has(i)
-        const rival = RIVAL.has(i)
-        return (
-          <View
-            key={i}
-            style={[
-              styles.tile,
-              mine && { backgroundColor: colors.territorySoft, borderColor: colors.territory },
-              rival && { backgroundColor: 'rgba(244,63,94,0.10)', borderColor: colors.enemy },
-            ]}
-          />
-        )
-      })}
-    </View>
-  )
+// GPS speed (m/s) -> activity label + whether captures are allowed (anti-cheat).
+const MAX_WALK_MS = 8 // ~28.8 km/h — above this we flag a vehicle
+function activityFor(speed: number) {
+  if (speed < 0.3) return { label: 'Idle', ok: true }
+  if (speed < 2.2) return { label: 'Walking', ok: true }
+  if (speed < MAX_WALK_MS) return { label: 'Running', ok: true }
+  return { label: 'Vehicle', ok: false }
 }
 
 function HudChip({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
@@ -48,44 +34,149 @@ function HudChip({ icon, value, label }: { icon: React.ReactNode; value: string;
 }
 
 export default function CaptureScreen() {
+  const webRef = useRef<WebView>(null)
+  const [fix, setFix] = useState<Fix | null>(null)
+  const [ready, setReady] = useState(false)
+  const [denied, setDenied] = useState(false)
+  const [captured, setCaptured] = useState<Set<string>>(new Set())
+
+  // Real device GPS.
+  useEffect(() => {
+    let sub: Location.LocationSubscription | undefined
+    let active = true
+    const apply = (p: Location.LocationObject) => {
+      if (!active) return
+      setFix({
+        lat: p.coords.latitude,
+        lng: p.coords.longitude,
+        speed: Math.max(0, p.coords.speed ?? 0),
+        accuracy: p.coords.accuracy ?? 0,
+      })
+    }
+    ;(async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync()
+        if (status !== 'granted') {
+          setDenied(true)
+          return
+        }
+        // Grab an initial fix fast, then stream updates.
+        try {
+          apply(await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }))
+        } catch {
+          // no initial fix yet; the watcher will deliver one
+        }
+        sub = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.High, distanceInterval: 1, timeInterval: 1500 },
+          apply,
+        )
+      } catch {
+        setDenied(true)
+      }
+    })()
+    return () => {
+      active = false
+      sub?.remove()
+    }
+  }, [])
+
+  // Push location + captured tiles into the map when either changes (once ready).
+  useEffect(() => {
+    if (!ready || !fix) return
+    webRef.current?.injectJavaScript(`window.zorr && window.zorr.setLocation(${fix.lat},${fix.lng}); true;`)
+  }, [ready, fix])
+  useEffect(() => {
+    if (!ready) return
+    webRef.current?.injectJavaScript(`window.zorr && window.zorr.setCaptured(${JSON.stringify([...captured])}); true;`)
+  }, [ready, captured])
+
+  const activity = useMemo(() => activityFor(fix?.speed ?? 0), [fix?.speed])
+  const currentKey = fix ? tileKey(fix.lat, fix.lng) : null
+  const onCurrentTile = currentKey ? !captured.has(currentKey) : false
+
+  const capture = useCallback(() => {
+    if (!currentKey || !activity.ok) return
+    setCaptured((prev) => new Set(prev).add(currentKey))
+    // TODO: submit tile claim to the MagicBlock Ephemeral Rollup (session key).
+  }, [currentKey, activity.ok])
+
+  const onMessage = useCallback(
+    (e: { nativeEvent: { data: string } }) => {
+      try {
+        const msg = JSON.parse(e.nativeEvent.data)
+        if (msg.type === 'ready') setReady(true)
+        if (msg.type === 'tileTap' && fix && activity.ok) {
+          // allow claiming a tapped tile only if it's the tile you're standing on
+          if (msg.key === tileKey(fix.lat, fix.lng)) {
+            setCaptured((prev) => new Set(prev).add(msg.key))
+          }
+        }
+      } catch {
+        // ignore
+      }
+    },
+    [fix, activity.ok],
+  )
+
+  const speedKmh = ((fix?.speed ?? 0) * 3.6).toFixed(1)
+
   return (
     <View style={styles.container}>
-      {/* Territory map (stylized grid for now) */}
-      <TileGrid />
-      <LinearGradient colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.9)']} style={StyleSheet.absoluteFill} />
+      <WebView
+        ref={webRef}
+        originWhitelist={['*']}
+        source={{ html: mapHtml }}
+        onMessage={onMessage}
+        style={styles.map}
+        javaScriptEnabled
+        domStorageEnabled
+        allowFileAccess
+      />
 
-      <SafeAreaView style={styles.overlay} edges={['top', 'bottom']}>
-        {/* Top HUD — anti-cheat status */}
-        <Animated.View entering={FadeIn} style={styles.hud}>
-          <HudChip icon={<Gauge color={colors.territory} size={18} />} value="0.0 km/h" label="Speed" />
-          <HudChip icon={<Footprints color={colors.primary} size={18} />} value="0" label="Steps/min" />
-          <HudChip icon={<Activity color={colors.gold} size={18} />} value="Idle" label="Activity" />
+      <SafeAreaView style={styles.overlay} edges={['top', 'bottom']} pointerEvents="box-none">
+        {/* Top HUD — real anti-cheat status */}
+        <Animated.View entering={FadeIn} style={styles.hud} pointerEvents="none">
+          <HudChip icon={<Gauge color={activity.ok ? colors.territory : colors.enemy} size={18} />} value={`${speedKmh} km/h`} label="Speed" />
+          <HudChip icon={<Flag color={colors.gold} size={18} />} value={`${captured.size}`} label="Tiles" />
+          <HudChip icon={<Activity color={activity.ok ? colors.gold : colors.enemy} size={18} />} value={activity.label} label="Activity" />
         </Animated.View>
 
         <View style={{ flex: 1 }} />
 
-        {/* Current zone + capture */}
+        {/* Bottom sheet — current zone + capture */}
         <Animated.View entering={FadeInUp} style={styles.sheet}>
-          <View style={styles.zoneRow}>
-            <MapPin color={colors.territory} size={18} />
-            <Text style={styles.zoneName}>Unclaimed Zone</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>+50 $ZORR</Text>
-            </View>
-          </View>
-          <Text style={styles.zoneHint}>Walk into a tile to capture it. Hold ground to keep it.</Text>
+          {denied ? (
+            <Text style={styles.zoneHint}>Location permission is required to capture land. Enable it in settings.</Text>
+          ) : !fix ? (
+            <Text style={styles.zoneHint}>Acquiring GPS…</Text>
+          ) : (
+            <>
+              <View style={styles.zoneRow}>
+                <MapPin color={colors.territory} size={18} />
+                <Text style={styles.zoneName}>{onCurrentTile ? 'Unclaimed tile' : 'Your tile'}</Text>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>+50 $ZORR</Text>
+                </View>
+              </View>
+              <Text style={styles.zoneHint}>
+                {activity.ok ? 'Stand on a tile and capture it. Accuracy ±' + Math.round(fix.accuracy) + 'm' : '🚫 Moving too fast — vehicles can’t capture land.'}
+              </Text>
 
-          <TouchableOpacity activeOpacity={0.9}>
-            <LinearGradient
-              colors={['#22D3A6', '#0F766E']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.captureBtn}
-            >
-              <Flag color="#04110C" size={20} />
-              <Text style={styles.captureText}>Capture Tile</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.9} onPress={capture} disabled={!onCurrentTile || !activity.ok}>
+                <LinearGradient
+                  colors={onCurrentTile && activity.ok ? ['#22D3A6', '#0F766E'] : ['#333', '#222']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.captureBtn}
+                >
+                  <Footprints color={onCurrentTile && activity.ok ? '#04110C' : colors.textFaint} size={20} />
+                  <Text style={[styles.captureText, (!onCurrentTile || !activity.ok) && { color: colors.textFaint }]}>
+                    {onCurrentTile ? 'Capture this tile' : 'Tile already yours'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </>
+          )}
         </Animated.View>
       </SafeAreaView>
     </View>
@@ -94,21 +185,15 @@ export default function CaptureScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  grid: { ...StyleSheet.absoluteFillObject, flexDirection: 'row', flexWrap: 'wrap', padding: 2 },
-  tile: {
-    width: `${100 / GRID_COLS}%`,
-    height: `${100 / GRID_ROWS}%`,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  overlay: { flex: 1, paddingHorizontal: 16 },
+  map: { flex: 1, backgroundColor: colors.background },
+  overlay: { ...StyleSheet.absoluteFillObject, paddingHorizontal: 16 },
   hud: { flexDirection: 'row', gap: 8, marginTop: 8 },
   chip: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
@@ -118,7 +203,7 @@ const styles = StyleSheet.create({
   chipValue: { color: colors.text, fontSize: 14, fontFamily: fonts.mono },
   chipLabel: { color: colors.textDim, fontSize: 11 },
   sheet: {
-    backgroundColor: 'rgba(10,10,15,0.9)',
+    backgroundColor: 'rgba(10,10,15,0.94)',
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.xl,
