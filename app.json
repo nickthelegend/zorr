@@ -1,15 +1,15 @@
 {
   "expo": {
-    "scheme": "meridian",
+    "scheme": "zorr",
     "userInterfaceStyle": "automatic",
     "orientation": "default",
     "web": {
       "output": "static"
     },
-    "name": "meridian",
-    "slug": "meridian",
+    "name": "zorr",
+    "slug": "zorr",
     "android": {
-      "package": "com.meridian.app"
+      "package": "com.zorr.app"
     },
     "plugins": ["expo-router", "expo-secure-store", "expo-web-browser"]
   }

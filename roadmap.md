@@ -1,4 +1,4 @@
-# Meridian — Roadmap
+# Zorr — Roadmap
 
 **Solana Blitz v6 (MagicBlock) — Mobile theme.**
 A real-time, GPS-based on-chain quest & territory game. Physically visit locations to claim
@@ -33,7 +33,7 @@ Goal: a running Expo app that connects a wallet and can talk to a MagicBlock Eph
 - [x] Install `solana-dev` skill.
 - [x] Clone `magicblock-engine-examples` into `../references_/` (reference: `session-keys`,
       `anchor-counter`, `roll-dice`/`rewards-delegated-vrf` (VRF), `private-counter` (PERs)).
-- [x] Scaffold Expo app (Privy embedded wallet template) → `meridian/`.
+- [x] Scaffold Expo app (Privy embedded wallet template) → `zorr/`.
 - [ ] `npm install` + first `npm run android` on device/emulator.
 - [ ] Set up Privy app (App ID + Client ID in `.env`).
 - [ ] Prove wallet connect + balance + sign transaction (template's built-in flows).
