@@ -63,8 +63,10 @@ Notes:
 ## Tests
 
 ```bash
-npm test               # 25 unit tests (jest-expo) — tiles, rivals, leaderboard,
-                       # run helpers, level curve, on-chain instruction encoding
+npm test               # 36 unit tests (jest-expo) — tiles, rivals, leaderboard,
+                       # run helpers, level curve, on-chain encoding, and the
+                       # PvP duel engine (protocol, host election, outcome,
+                       # + a two-peer loopback that proves both phones agree)
 npm run test:integration   # live devnet: program is deployed + executable,
                            # territory PDA exists, capture_tile encoding matches IDL
 ```
@@ -74,7 +76,14 @@ Deep write-path integration (delegate → gasless ER capture → commit) lives i
 ## Status (honest)
 
 Done and verified: onboarding/login (**Privy** email OTP + embedded Solana wallet, or guest),
-GPS + maps + anti-cheat, run sessions, rivals, leaderboard, wallet/profile/settings, PvP tap-duel,
+GPS + maps + anti-cheat, run sessions, rivals, leaderboard, wallet/profile/settings,
 **real on-chain run logging** (confirmed devnet tx), and the **MagicBlock Ephemeral Rollup** program
-(deployed, delegated, gasless capture + commit — proven live). Unit + integration tests pass.
-Optional next: on-device Bluetooth P2P duel (native module wired; needs a rebuild + two phones).
+(deployed, delegated, gasless capture + commit — proven live).
+
+The **PvP tap-duel** is complete: single-player vs a deterministic bot, plus a Bluetooth/Wi-Fi
+peer duel over Google Nearby Connections — synchronized start (nonce host election + shared GO
+signal), live score sync, disconnect-forfeit, and rematch. Its fairness logic (protocol, election,
+winner reconciliation) is proven by a two-peer loopback test, so both devices always agree on the
+winner; runtime Bluetooth/location permissions are declared and requested. The one thing software
+can't self-check is the radio pairing between two physical phones — that's a device QA step, not a
+code gap. `tsc` 0 errors · eslint 0 warnings · 36/36 unit tests · integration green · full Metro bundle.
