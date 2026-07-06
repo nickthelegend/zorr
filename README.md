@@ -17,7 +17,16 @@ Zorr is an INTVL-style running game: you **Start a Run**, and the ground you phy
 
 ## Why on-chain (the MagicBlock story)
 
-Territory games like INTVL keep your progress on their servers. In Zorr, **every run is a real, verifiable Solana transaction** signed by an embedded/game wallet — no popups per action. Roadmap: move per-tile claims onto a **MagicBlock Ephemeral Rollup** (delegated PDA) for gasless, instant, real-time claims during a run.
+Territory games like INTVL keep your progress on their servers. In Zorr, **every capture is a real Solana transaction** signed by a session/game wallet — no popups per action.
+
+Per-tile claims run on a **MagicBlock Ephemeral Rollup**: a delegated `territory` PDA is captured **on the ER** (gasless, ~50–150 ms), then committed back to Solana devnet. This is **built and proven**, not a roadmap item — see below.
+
+### MagicBlock Ephemeral Rollup — implemented ✅
+
+- **Program:** [`BSDY7ZusGE7372ydW7K8BuE8ZoiYumTBrAR9uymPGL1F`](https://explorer.solana.com/address/BSDY7ZusGE7372ydW7K8BuE8ZoiYumTBrAR9uymPGL1F?cluster=devnet) — a custom Anchor program using `#[ephemeral]` / `#[delegate]` and the `ephemeral-rollups-sdk` (`initialize` / `delegate` / `capture_tile` / `commit` / `undelegate`).
+- **ER endpoint:** `https://devnet-as.magicblock.app` · **validator** `MAS1Dt9qreoRMQ14YQuhg8UTZMMzDdKhmkZMECCzk57`.
+- **Flow:** `initialize` → `delegate` PDA to the ER → `capture_tile` **on the ER** (gasless) → `commit` state back to devnet base layer.
+- **Proven:** the full delegate → gasless capture → commit path passes live on devnet via `onchain/tests/zorr-er.ts` (~154 ms capture), and standalone via `@solana/kit` (~51 ms). In the app, `src/features/chain/er.ts#captureTileOnER` builds the same instruction and posts it to the ER, with a devnet memo tx as fallback.
 
 ## Features
 
@@ -51,9 +60,21 @@ Notes:
 - Fund the game wallet address (shown in the Wallet tab) with devnet SOL to make claims land.
 - Guest mode works with no Privy setup; email login needs `com.zorr.app` allow-listed in the Privy dashboard.
 
+## Tests
+
+```bash
+npm test               # 25 unit tests (jest-expo) — tiles, rivals, leaderboard,
+                       # run helpers, level curve, on-chain instruction encoding
+npm run test:integration   # live devnet: program is deployed + executable,
+                           # territory PDA exists, capture_tile encoding matches IDL
+```
+
+Deep write-path integration (delegate → gasless ER capture → commit) lives in `onchain/tests/zorr-er.ts`.
+
 ## Status (honest)
 
-Done and verified on-device: onboarding/login, GPS + maps + anti-cheat, run sessions, rivals,
-leaderboard, wallet/profile/settings, and **real on-chain run logging** (a confirmed devnet tx).
-Next architectural step: the delegated **MagicBlock Ephemeral Rollup** program for gasless/instant
-per-tile claims (Stage 2), plus optional PvP/Bluetooth battles.
+Done and verified: onboarding/login (**Privy** email OTP + embedded Solana wallet, or guest),
+GPS + maps + anti-cheat, run sessions, rivals, leaderboard, wallet/profile/settings, PvP tap-duel,
+**real on-chain run logging** (confirmed devnet tx), and the **MagicBlock Ephemeral Rollup** program
+(deployed, delegated, gasless capture + commit — proven live). Unit + integration tests pass.
+Optional next: on-device Bluetooth P2P duel (native module wired; needs a rebuild + two phones).
