@@ -1,18 +1,19 @@
 import { usePrivy } from '@privy-io/expo'
 import { router } from 'expo-router'
-import { Award, Flag, Footprints, LogOut, MapPin, Settings, Shield } from 'lucide-react-native'
-import { ReactNode } from 'react'
+import * as SecureStore from 'expo-secure-store'
+import { Award, Flame, Footprints, HelpCircle, LogOut, MapPin, Shield } from 'lucide-react-native'
+import { ReactNode, useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { GlassCard } from '../../components/glass-card'
+import { getSignerAddress } from '../../features/chain/claim'
 import { levelForXp, useGame } from '../../features/game/game-store'
-import { useSolanaAccount } from '../../features/wallet/use-solana-account'
+import { tileAreaKm2 } from '../../features/run/use-run-session'
 import { colors, fonts, radius } from '../../theme'
 
-function short(addr?: string) {
-  return addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : 'No wallet yet'
+function short(a?: string) {
+  return a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '…'
 }
 
 function Stat({ icon, value, label }: { icon: ReactNode; value: string; label: string }) {
@@ -28,74 +29,84 @@ function Stat({ icon, value, label }: { icon: ReactNode; value: string; label: s
 function Badge({ label, unlocked }: { label: string; unlocked: boolean }) {
   return (
     <View style={[styles.badge, !unlocked && styles.badgeLocked]}>
-      <Award color={unlocked ? colors.gold : colors.textFaint} size={20} />
+      <Award color={unlocked ? colors.gold : colors.textFaint} size={18} />
       <Text style={[styles.badgeLabel, !unlocked && { color: colors.textFaint }]}>{label}</Text>
     </View>
   )
 }
 
 export default function ProfileScreen() {
-  const { address } = useSolanaAccount()
-  const { logout } = usePrivy()
   const game = useGame()
+  const { logout } = usePrivy()
   const { level } = levelForXp(game.xp)
+  const [addr, setAddr] = useState<string>()
   const tiles = game.tiles.size
+  const km2 = tiles * tileAreaKm2(17.4239)
+
+  useEffect(() => {
+    getSignerAddress().then(setAddr).catch(() => {})
+  }, [])
 
   const handleSignOut = async () => {
-    await logout()
+    await SecureStore.deleteItemAsync('zorr.entered')
+    try {
+      await logout()
+    } catch {
+      // guest session — nothing to log out of
+    }
     router.replace('/login')
   }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <Animated.View entering={FadeInDown} style={styles.headerRow}>
           <Text style={styles.brand}>Profile</Text>
-          <TouchableOpacity style={styles.iconBtn}>
-            <Settings color={colors.text} size={20} />
+          <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/settings')}>
+            <HelpCircle color={colors.text} size={20} />
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Avatar card */}
-        <Animated.View entering={FadeInDown.delay(80)}>
-          <GlassCard>
+        {/* Identity card */}
+        <Animated.View entering={FadeInDown.delay(60)}>
+          <View style={styles.card}>
             <View style={styles.avatarRow}>
-              <View style={[styles.avatar, { backgroundColor: game.color + '22', borderColor: game.color }]}>
+              <View style={[styles.avatar, { backgroundColor: game.color + '26', borderColor: game.color, shadowColor: game.color }]}>
                 <Text style={[styles.avatarText, { color: game.color }]}>{game.name.charAt(0).toUpperCase()}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{game.name}</Text>
-                <Text style={styles.levelLine}>Level {level} Explorer</Text>
+                <Text style={styles.levelLine}>LEVEL {level} EXPLORER</Text>
                 <View style={styles.rankRow}>
-                  <Shield color={colors.territory} size={14} />
-                  <Text style={styles.rank}>{short(address)}</Text>
+                  <Shield color={colors.territory} size={13} />
+                  <Text style={styles.rank}>{short(addr)}</Text>
                 </View>
               </View>
             </View>
             <View style={styles.statsRow}>
-              <Stat icon={<Flag color={colors.territory} size={18} />} value={`${tiles}`} label="Tiles" />
-              <Stat icon={<MapPin color={colors.primary} size={18} />} value={`${level}`} label="Level" />
-              <Stat icon={<Footprints color={colors.gold} size={18} />} value={`${game.xp}`} label="$ZORR" />
+              <Stat icon={<MapPin color={colors.territory} size={17} />} value={km2.toFixed(2)} label="KM²" />
+              <Stat icon={<Footprints color={colors.primary} size={17} />} value={`${tiles}`} label="TILES" />
+              <Stat icon={<Flame color={colors.gold} size={17} />} value={`${game.bestStreak}`} label="COMBO" />
             </View>
-          </GlassCard>
+          </View>
         </Animated.View>
 
         {/* Achievements */}
-        <Animated.View entering={FadeInDown.delay(160)}>
-          <GlassCard style={{ marginTop: 20 }}>
-            <Text style={styles.cardTitle}>Achievements</Text>
+        <Animated.View entering={FadeInDown.delay(140)}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>ACHIEVEMENTS</Text>
             <View style={styles.badgeGrid}>
               <Badge label="First Capture" unlocked={tiles >= 1} />
               <Badge label="Land Baron" unlocked={tiles >= 10} />
               <Badge label="Combo Master" unlocked={game.bestStreak >= 5} />
               <Badge label="Warlord" unlocked={tiles >= 25} />
+              <Badge label="Territory King" unlocked={km2 >= 0.1} />
+              <Badge label="Level 5" unlocked={level >= 5} />
             </View>
-          </GlassCard>
+          </View>
         </Animated.View>
 
-        {/* Sign out */}
-        <Animated.View entering={FadeInDown.delay(240)}>
+        <Animated.View entering={FadeInDown.delay(220)}>
           <TouchableOpacity style={styles.signOut} activeOpacity={0.8} onPress={handleSignOut}>
             <LogOut color={colors.enemy} size={18} />
             <Text style={styles.signOutText}>Sign out</Text>
@@ -121,27 +132,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    padding: 20,
+    marginBottom: 16,
+  },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   avatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: colors.primaryBorder,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
   },
-  avatarText: { color: colors.primary, fontFamily: fonts.display, fontSize: 28 },
+  avatarText: { fontFamily: fonts.display, fontSize: 28 },
   name: { color: colors.text, fontSize: 22, fontFamily: fonts.display },
-  levelLine: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
-  rankRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  rank: { color: colors.textDim, fontSize: 13 },
+  levelLine: { color: colors.textDim, fontSize: 11, letterSpacing: 1, marginTop: 2 },
+  rankRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  rank: { color: colors.textDim, fontSize: 12, fontFamily: fonts.mono },
   statsRow: { flexDirection: 'row', marginTop: 20, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16 },
   stat: { flex: 1, alignItems: 'center', gap: 4 },
   statValue: { color: colors.text, fontSize: 20, fontFamily: fonts.display },
-  statLabel: { color: colors.textDim, fontSize: 12 },
-  cardTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 16 },
+  statLabel: { color: colors.textFaint, fontSize: 10, letterSpacing: 1 },
+  cardTitle: { color: colors.textDim, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 16 },
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   badge: {
     width: '47%',
@@ -154,15 +175,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: 14,
   },
-  badgeLocked: { opacity: 0.5 },
+  badgeLocked: { opacity: 0.45 },
   badgeLabel: { color: colors.text, fontSize: 13, fontWeight: '600', flex: 1 },
   signOut: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 24,
-    paddingVertical: 14,
+    paddingVertical: 15,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: 'rgba(244,63,94,0.3)',
