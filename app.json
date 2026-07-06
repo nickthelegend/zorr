@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "scheme": "meridian",
+    "userInterfaceStyle": "automatic",
+    "orientation": "default",
+    "web": {
+      "output": "static"
+    },
+    "name": "meridian",
+    "slug": "meridian",
+    "android": {
+      "package": "com.meridian.app"
+    },
+    "plugins": ["expo-router", "expo-secure-store", "expo-web-browser"]
+  }
+}
