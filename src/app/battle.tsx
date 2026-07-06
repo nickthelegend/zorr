@@ -6,62 +6,122 @@ import Animated, { FadeIn, FadeInUp, useAnimatedStyle, useSharedValue, withSprin
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Aurora } from '../components/aurora'
+import {
+  botRate,
+  botTapsAt,
+  COUNTDOWN_FROM,
+  electRole,
+  encodeMsg,
+  FIGHT_MS,
+  outcomeLabel,
+  parseMsg,
+  resolveOutcome,
+  xpForOutcome,
+  type Outcome,
+  type Role,
+} from '../features/battle/duel'
+import { useNearby } from '../features/battle/use-nearby'
 import { useGame } from '../features/game/game-store'
 import { RIVAL_CLANS } from '../features/game/rivals'
-import { useNearby } from '../features/battle/use-nearby'
 import { colors, fonts, radius } from '../theme'
 
 type Mode = 'lobby' | 'countdown' | 'fight' | 'result'
-const FIGHT_MS = 5000
-const WIN_XP = 300
-const LOSE_XP = 60
 
 export default function BattleScreen() {
   const game = useGame()
   const [mode, setMode] = useState<Mode>('lobby')
   const [oppName, setOppName] = useState('Rival')
   const [isPeer, setIsPeer] = useState(false)
+  const [left, setLeft] = useState(false) // opponent forfeited by disconnecting
   const [myScore, setMyScore] = useState(0)
   const [oppScore, setOppScore] = useState(0)
-  const [count, setCount] = useState(3)
+  const [count, setCount] = useState(COUNTDOWN_FROM)
   const [timeLeft, setTimeLeft] = useState(FIGHT_MS)
 
   const myScoreRef = useRef(0)
   const oppScoreRef = useRef(0)
+  const oppFinalRef = useRef<number | null>(null) // authoritative once peer's clock ends
+  const leftRef = useRef(false)
+  const roleRef = useRef<Role | null>(null)
+  const modeRef = useRef<Mode>('lobby')
+  modeRef.current = mode
 
-  // Peer duel: opponent taps arrive as "S:<n>".
-  const nearby = useNearby(game.name, (text) => {
-    if (text.startsWith('S:')) {
-      const n = parseInt(text.slice(2), 10)
-      if (!Number.isNaN(n)) {
-        oppScoreRef.current = n
-        setOppScore(n)
-      }
-    }
-  })
-
-  // Always point at the latest transport without making effects depend on it.
-  const nearbyRef = useRef(nearby)
-  nearbyRef.current = nearby
-
-  // Start the moment a peer connects.
-  useEffect(() => {
-    if (nearby.connected && mode === 'lobby') {
-      setOppName(nearby.connected.name)
-      setIsPeer(true)
-      beginCountdown()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nearby.connected])
+  // Stable, non-zero election nonce for this session.
+  const myNonceRef = useRef(0)
+  if (!myNonceRef.current) myNonceRef.current = 1 + Math.floor(Math.random() * 1_000_000_000)
 
   const beginCountdown = useCallback(() => {
     setMyScore(0)
     setOppScore(0)
+    setLeft(false)
     myScoreRef.current = 0
     oppScoreRef.current = 0
-    setCount(3)
+    oppFinalRef.current = null
+    leftRef.current = false
+    setCount(COUNTDOWN_FROM)
     setMode('countdown')
   }, [])
+
+  // Points at the latest transport so callbacks/effects can reach it without
+  // taking it as a dependency. Declared before the hook so the message handler
+  // below can close over it.
+  const nearbyRef = useRef<ReturnType<typeof useNearby> | null>(null)
+
+  // Peer duel handshake + score sync, all over the Nearby text channel.
+  const nearby = useNearby(game.name, (text) => {
+    const msg = parseMsg(text)
+    if (!msg) return
+    const idle = modeRef.current === 'lobby' || modeRef.current === 'result'
+    switch (msg.type) {
+      case 'hello': {
+        const role = electRole(myNonceRef.current, msg.nonce)
+        if (role === 'tie') {
+          myNonceRef.current = 1 + Math.floor(Math.random() * 1_000_000_000)
+          nearbyRef.current?.send(encodeMsg({ type: 'hello', nonce: myNonceRef.current }))
+          return
+        }
+        roleRef.current = role
+        // The host fires the single shared start signal.
+        if (role === 'host' && idle) {
+          nearbyRef.current?.send(encodeMsg({ type: 'go' }))
+          beginCountdown()
+        }
+        break
+      }
+      case 'go':
+        if (roleRef.current !== 'host' && idle) beginCountdown()
+        break
+      case 'tap':
+        oppScoreRef.current = msg.score
+        setOppScore(msg.score)
+        break
+      case 'final':
+        oppFinalRef.current = msg.score
+        oppScoreRef.current = msg.score
+        setOppScore(msg.score)
+        break
+    }
+  })
+
+  nearbyRef.current = nearby
+
+  // On connect, name the opponent and open the handshake.
+  useEffect(() => {
+    if (!nearby.connected) return
+    setOppName(nearby.connected.name)
+    setIsPeer(true)
+    nearbyRef.current?.send(encodeMsg({ type: 'hello', nonce: myNonceRef.current }))
+  }, [nearby.connected])
+
+  // Opponent dropping mid-match is a forfeit — you take the win.
+  useEffect(() => {
+    if (isPeer && !nearby.connected && (mode === 'countdown' || mode === 'fight')) {
+      leftRef.current = true
+      setLeft(true)
+      setMode('result')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nearby.connected])
 
   // Countdown 3→2→1→fight.
   useEffect(() => {
@@ -75,61 +135,86 @@ export default function BattleScreen() {
     return () => clearTimeout(id)
   }, [mode, count])
 
-  // Fight timer + bot ticker.
+  // Fight clock. In single-player the opponent is a deterministic bot driven by
+  // the same clock; in a peer duel the opponent score arrives over the wire.
   useEffect(() => {
     if (mode !== 'fight') return
     const started = Date.now()
+    const rate = botRate('even')
     const timer = setInterval(() => {
-      const left = FIGHT_MS - (Date.now() - started)
-      setTimeLeft(Math.max(0, left))
-      if (left <= 0) {
+      const elapsed = Date.now() - started
+      const remaining = FIGHT_MS - elapsed
+      setTimeLeft(Math.max(0, remaining))
+      if (!isPeer) {
+        oppScoreRef.current = botTapsAt(elapsed, rate)
+        setOppScore(oppScoreRef.current)
+      }
+      if (remaining <= 0) {
         clearInterval(timer)
-        botTick && clearInterval(botTick)
-        if (isPeer) nearbyRef.current.send(`R:${myScoreRef.current}`)
+        if (isPeer) nearbyRef.current?.send(encodeMsg({ type: 'final', score: myScoreRef.current }))
         setMode('result')
       }
     }, 100)
-    let botTick: ReturnType<typeof setInterval> | undefined
-    if (!isPeer) {
-      botTick = setInterval(() => {
-        oppScoreRef.current += 1
-        setOppScore(oppScoreRef.current)
-      }, 150 + Math.floor(60 * (0.5))) // ~5-6 taps/s bot
-    }
-    return () => {
-      clearInterval(timer)
-      if (botTick) clearInterval(botTick)
-    }
+    return () => clearInterval(timer)
   }, [mode, isPeer])
 
-  // Reward once, on entering result.
+  // Award XP once. For peer duels, wait a beat for the opponent's FINAL so the
+  // reward is computed from reconciled scores, not a mid-flight snapshot.
   const rewarded = useRef(false)
   useEffect(() => {
-    if (mode === 'result' && !rewarded.current) {
-      rewarded.current = true
-      game.award(myScoreRef.current > oppScoreRef.current ? WIN_XP : LOSE_XP)
+    if (mode !== 'result') {
+      rewarded.current = false
+      return
     }
-    if (mode !== 'result') rewarded.current = false
-  }, [mode, game])
+    if (rewarded.current) return
+    const grant = () => {
+      rewarded.current = true
+      const opp = oppFinalRef.current ?? oppScoreRef.current
+      const outcome: Outcome = leftRef.current ? 'win' : resolveOutcome(myScoreRef.current, opp)
+      game.award(xpForOutcome(outcome))
+    }
+    if (isPeer && !leftRef.current) {
+      const id = setTimeout(grant, 600)
+      return () => clearTimeout(id)
+    }
+    grant()
+  }, [mode, isPeer, game])
 
   const tapScale = useSharedValue(1)
   const tapStyle = useAnimatedStyle(() => ({ transform: [{ scale: tapScale.value }] }))
   const onTap = () => {
+    if (mode !== 'fight') return
     myScoreRef.current += 1
     setMyScore(myScoreRef.current)
-    if (isPeer) nearby.send(`S:${myScoreRef.current}`)
+    if (isPeer) nearbyRef.current?.send(encodeMsg({ type: 'tap', score: myScoreRef.current }))
     tapScale.value = withSpring(0.94, { damping: 8 }, () => {
       tapScale.value = withTiming(1, { duration: 90 })
     })
   }
 
   const quit = useCallback(() => {
-    nearby.stop()
+    nearbyRef.current?.stop()
     router.back()
-  }, [nearby])
+  }, [])
 
-  const won = myScore > oppScore
-  const tie = myScore === oppScore
+  // Rematch: re-run the handshake if a peer is still connected, otherwise drop
+  // back to a quick bot match so the button always does something sensible.
+  const onRematch = useCallback(() => {
+    if (isPeer && nearbyRef.current?.connected) {
+      nearbyRef.current?.send(encodeMsg({ type: 'hello', nonce: myNonceRef.current }))
+      if (roleRef.current === 'host') {
+        nearbyRef.current?.send(encodeMsg({ type: 'go' }))
+        beginCountdown()
+      }
+      return
+    }
+    setIsPeer(false)
+    setOppName(RIVAL_CLANS[myNonceRef.current % RIVAL_CLANS.length].name)
+    beginCountdown()
+  }, [isPeer, beginCountdown])
+
+  const outcome: Outcome = left ? 'win' : resolveOutcome(myScore, oppScore)
+  const won = outcome === 'win'
 
   return (
     <View style={styles.root}>
@@ -189,6 +274,8 @@ export default function BattleScreen() {
                 )}
               </View>
             ) : null}
+
+            {nearby.error ? <Text style={styles.errorLine}>{nearby.error}</Text> : null}
           </Animated.View>
         ) : mode === 'countdown' ? (
           <View style={styles.center}>
@@ -215,12 +302,13 @@ export default function BattleScreen() {
             <View style={[styles.resultCrest, { borderColor: won ? colors.gold : colors.border }]}>
               <Trophy color={won ? colors.gold : colors.textDim} size={44} />
             </View>
-            <Text style={styles.resultTitle}>{tie ? 'Draw' : won ? 'Victory' : 'Defeated'}</Text>
+            <Text style={styles.resultTitle}>{outcomeLabel(outcome)}</Text>
+            {left ? <Text style={styles.forfeit}>Opponent left the duel</Text> : null}
             <Text style={styles.resultScore}>
               {myScore} — {oppScore}
             </Text>
-            <Text style={styles.resultXp}>+{won ? WIN_XP : LOSE_XP} XP</Text>
-            <TouchableOpacity style={styles.option} activeOpacity={0.9} onPress={beginCountdown}>
+            <Text style={styles.resultXp}>+{xpForOutcome(outcome)} XP</Text>
+            <TouchableOpacity style={styles.option} activeOpacity={0.9} onPress={onRematch}>
               <Text style={styles.optionText}>Rematch</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={quit}>
@@ -334,4 +422,6 @@ const styles = StyleSheet.create({
   resultScore: { color: colors.textMuted, fontSize: 20, fontFamily: fonts.mono, marginTop: 8 },
   resultXp: { color: colors.gold, fontSize: 16, fontWeight: '700', marginTop: 6, marginBottom: 24 },
   leave: { color: colors.textDim, fontSize: 14, marginTop: 14 },
+  forfeit: { color: colors.territory, fontSize: 13, marginTop: 8 },
+  errorLine: { color: colors.enemy, fontSize: 13, textAlign: 'center', marginTop: 14, lineHeight: 18 },
 })
