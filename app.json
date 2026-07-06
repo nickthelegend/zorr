@@ -35,8 +35,7 @@
           "backgroundColor": "#06060A",
           "imageWidth": 200
         }
-      ],
-      "expo-nearby-connections"
+      ]
     ]
   }
 }

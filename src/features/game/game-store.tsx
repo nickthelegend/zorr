@@ -1,6 +1,10 @@
 import * as SecureStore from 'expo-secure-store'
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
+import { levelForXp } from './level'
+
+export { levelForXp }
+
 const KEY = 'zorr.game.v1'
 const XP_PER_TILE = 50
 
@@ -24,18 +28,6 @@ type GameState = {
 }
 
 const GameContext = createContext<GameState | null>(null)
-
-export function levelForXp(xp: number) {
-  let level = 1
-  let need = 250
-  let acc = 0
-  while (xp >= acc + need) {
-    acc += need
-    level += 1
-    need = 250 * level
-  }
-  return { level, into: xp - acc, need }
-}
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
