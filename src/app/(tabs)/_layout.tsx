@@ -1,6 +1,6 @@
 import { BlurView } from 'expo-blur'
 import { Tabs } from 'expo-router'
-import { Flag, Home, User, Wallet } from 'lucide-react-native'
+import { Flag, Home, Trophy, User, Wallet } from 'lucide-react-native'
 import { Platform, StyleSheet } from 'react-native'
 
 import { colors } from '../../theme'
@@ -26,6 +26,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="capture"
         options={{ tabBarIcon: ({ color, size }) => <Flag color={color} size={size} /> }}
+      />
+      <Tabs.Screen
+        name="leaderboard"
+        options={{ tabBarIcon: ({ color, size }) => <Trophy color={color} size={size} /> }}
       />
       <Tabs.Screen
         name="wallet"
