@@ -1,3 +1,5 @@
+import { usePrivy } from '@privy-io/expo'
+import { router } from 'expo-router'
 import { Award, Flag, Footprints, LogOut, MapPin, Settings, Shield } from 'lucide-react-native'
 import { ReactNode } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
@@ -5,7 +7,12 @@ import Animated, { FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { GlassCard } from '../../components/glass-card'
+import { useSolanaAccount } from '../../features/wallet/use-solana-account'
 import { colors, fonts, radius } from '../../theme'
+
+function short(addr?: string) {
+  return addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : 'No wallet yet'
+}
 
 function Stat({ icon, value, label }: { icon: ReactNode; value: string; label: string }) {
   return (
@@ -27,6 +34,14 @@ function Badge({ label, unlocked }: { label: string; unlocked: boolean }) {
 }
 
 export default function ProfileScreen() {
+  const { address } = useSolanaAccount()
+  const { logout } = usePrivy()
+
+  const handleSignOut = async () => {
+    await logout()
+    router.replace('/login')
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -49,7 +64,7 @@ export default function ProfileScreen() {
                 <Text style={styles.name}>Explorer</Text>
                 <View style={styles.rankRow}>
                   <Shield color={colors.territory} size={14} />
-                  <Text style={styles.rank}>Unranked · New recruit</Text>
+                  <Text style={styles.rank}>{short(address)}</Text>
                 </View>
               </View>
             </View>
@@ -76,7 +91,7 @@ export default function ProfileScreen() {
 
         {/* Sign out */}
         <Animated.View entering={FadeInDown.delay(240)}>
-          <TouchableOpacity style={styles.signOut} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.signOut} activeOpacity={0.8} onPress={handleSignOut}>
             <LogOut color={colors.enemy} size={18} />
             <Text style={styles.signOutText}>Sign out</Text>
           </TouchableOpacity>

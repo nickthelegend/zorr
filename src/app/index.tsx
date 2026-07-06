@@ -1,23 +1,29 @@
+import { usePrivy } from '@privy-io/expo'
 import { router } from 'expo-router'
 import * as SecureStore from 'expo-secure-store'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ActivityIndicator, View } from 'react-native'
 
 import { colors } from '../theme'
 
 export default function Index() {
+  const { user, isReady } = usePrivy()
+  const [onboarded, setOnboarded] = useState<boolean | null>(null)
+
   useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      const done = await SecureStore.getItemAsync('onboardingCompleted')
-      if (mounted) {
-        router.replace(done ? '/home' : '/onboarding')
-      }
-    })()
-    return () => {
-      mounted = false
-    }
+    SecureStore.getItemAsync('onboardingCompleted').then((v) => setOnboarded(!!v))
   }, [])
+
+  useEffect(() => {
+    if (!isReady || onboarded === null) return
+    if (!onboarded) {
+      router.replace('/onboarding')
+    } else if (!user) {
+      router.replace('/login')
+    } else {
+      router.replace('/home')
+    }
+  }, [isReady, onboarded, user])
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>

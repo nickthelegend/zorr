@@ -65,7 +65,7 @@ export default function OnboardingScreen() {
 
   const finish = async () => {
     await SecureStore.setItemAsync('onboardingCompleted', 'true')
-    router.replace('/home')
+    router.replace('/login')
   }
 
   const handleNext = () => {
