@@ -9,6 +9,7 @@ import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from '
 import Animated, { FadeIn } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { Aurora } from '../components/aurora'
 import { colors, fonts, radius } from '../theme'
 
 const { width } = Dimensions.get('window')
@@ -80,6 +81,7 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Aurora />
       <Animated.View entering={FadeIn} style={styles.header}>
         <Text style={styles.brand}>ZORR</Text>
         <TouchableOpacity onPress={finish} style={styles.skipButton}>

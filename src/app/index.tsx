@@ -15,13 +15,15 @@ export default function Index() {
   }, [])
 
   useEffect(() => {
-    if (!isReady || onboarded === null) return
+    // Don't block the whole app on Privy's slow cold-start `isReady` — only wait
+    // on the fast SecureStore read. Login/home is decided from `user` as it resolves.
+    if (onboarded === null) return
     if (!onboarded) {
       router.replace('/onboarding')
-    } else if (!user) {
-      router.replace('/login')
-    } else {
+    } else if (isReady && user) {
       router.replace('/home')
+    } else {
+      router.replace('/login')
     }
   }, [isReady, onboarded, user])
 

@@ -61,11 +61,12 @@ export default function ProfileScreen() {
         <Animated.View entering={FadeInDown.delay(80)}>
           <GlassCard>
             <View style={styles.avatarRow}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>Z</Text>
+              <View style={[styles.avatar, { backgroundColor: game.color + '22', borderColor: game.color }]}>
+                <Text style={[styles.avatarText, { color: game.color }]}>{game.name.charAt(0).toUpperCase()}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.name}>Level {level} Explorer</Text>
+                <Text style={styles.name}>{game.name}</Text>
+                <Text style={styles.levelLine}>Level {level} Explorer</Text>
                 <View style={styles.rankRow}>
                   <Shield color={colors.territory} size={14} />
                   <Text style={styles.rank}>{short(address)}</Text>
@@ -133,6 +134,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: colors.primary, fontFamily: fonts.display, fontSize: 28 },
   name: { color: colors.text, fontSize: 22, fontFamily: fonts.display },
+  levelLine: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
   rankRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   rank: { color: colors.textDim, fontSize: 13 },
   statsRow: { flexDirection: 'row', marginTop: 20, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16 },

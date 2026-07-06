@@ -1,10 +1,12 @@
 import * as SecureStore from 'expo-secure-store'
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 const KEY = 'zorr.game.v1'
 const XP_PER_TILE = 50
 
-type Persisted = { tiles: string[]; xp: number; bestStreak: number }
+export const EXPLORER_COLORS = ['#7C3AED', '#22D3A6', '#F43F5E', '#FBBF24', '#3B82F6', '#EC4899'] as const
+
+type Persisted = { tiles: string[]; xp: number; bestStreak: number; name?: string; color?: string }
 
 type GameState = {
   ready: boolean
@@ -12,16 +14,17 @@ type GameState = {
   xp: number
   level: number
   bestStreak: number
+  name: string
+  color: string
   hasTile: (key: string) => boolean
-  /** Record a captured tile. Returns xp awarded (combo-boosted). */
   addCapture: (key: string, combo: number) => number
+  setIdentity: (name: string, color: string) => void
   reset: () => void
 }
 
 const GameContext = createContext<GameState | null>(null)
 
 export function levelForXp(xp: number) {
-  // Rising thresholds: level 1 at 0, then every 250*level xp.
   let level = 1
   let need = 250
   let acc = 0
@@ -38,6 +41,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [tiles, setTiles] = useState<Set<string>>(new Set())
   const [xp, setXp] = useState(0)
   const [bestStreak, setBestStreak] = useState(0)
+  const [name, setName] = useState('Explorer')
+  const [color, setColor] = useState<string>(EXPLORER_COLORS[0])
 
   useEffect(() => {
     ;(async () => {
@@ -48,6 +53,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setTiles(new Set(p.tiles ?? []))
           setXp(p.xp ?? 0)
           setBestStreak(p.bestStreak ?? 0)
+          if (p.name) setName(p.name)
+          if (p.color) setColor(p.color)
         }
       } catch {
         // ignore
@@ -57,9 +64,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
     })()
   }, [])
 
-  const persist = (next: Persisted) => {
-    SecureStore.setItemAsync(KEY, JSON.stringify(next)).catch(() => {})
-  }
+  // Auto-persist any change once loaded.
+  useEffect(() => {
+    if (!ready) return
+    const data: Persisted = { tiles: [...tiles], xp, bestStreak, name, color }
+    SecureStore.setItemAsync(KEY, JSON.stringify(data)).catch(() => {})
+  }, [ready, tiles, xp, bestStreak, name, color])
+
+  const comboRef = useRef(0)
+
+  const addCapture = useCallback(
+    (key: string, combo: number) => {
+      const award = XP_PER_TILE * Math.max(1, combo)
+      setTiles((prev) => new Set(prev).add(key))
+      setXp((x) => x + award)
+      comboRef.current = combo
+      setBestStreak((b) => Math.max(b, combo))
+      return award
+    },
+    [],
+  )
 
   const value = useMemo<GameState>(() => {
     const { level } = levelForXp(xp)
@@ -69,32 +93,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
       xp,
       level,
       bestStreak,
+      name,
+      color,
       hasTile: (key) => tiles.has(key),
-      addCapture: (key, combo) => {
-        const award = XP_PER_TILE * Math.max(1, combo)
-        setTiles((prev) => {
-          const next = new Set(prev).add(key)
-          setXp((x) => {
-            const nx = x + award
-            setBestStreak((b) => {
-              const nb = Math.max(b, combo)
-              persist({ tiles: [...next], xp: nx, bestStreak: nb })
-              return nb
-            })
-            return nx
-          })
-          return next
-        })
-        return award
+      addCapture,
+      setIdentity: (n, c) => {
+        setName(n.trim() || 'Explorer')
+        setColor(c)
       },
       reset: () => {
         setTiles(new Set())
         setXp(0)
         setBestStreak(0)
-        SecureStore.deleteItemAsync(KEY).catch(() => {})
       },
     }
-  }, [ready, tiles, xp, bestStreak])
+  }, [ready, tiles, xp, bestStreak, name, color, addCapture])
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>
 }
