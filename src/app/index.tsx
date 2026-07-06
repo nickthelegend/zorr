@@ -6,26 +6,30 @@ import { ActivityIndicator, View } from 'react-native'
 
 import { colors } from '../theme'
 
+type Gate = { onboarded: boolean; entered: boolean }
+
 export default function Index() {
   const { user, isReady } = usePrivy()
-  const [onboarded, setOnboarded] = useState<boolean | null>(null)
+  const [gate, setGate] = useState<Gate | null>(null)
 
   useEffect(() => {
-    SecureStore.getItemAsync('onboardingCompleted').then((v) => setOnboarded(!!v))
+    Promise.all([
+      SecureStore.getItemAsync('onboardingCompleted'),
+      SecureStore.getItemAsync('zorr.entered'),
+    ]).then(([o, e]) => setGate({ onboarded: !!o, entered: !!e }))
   }, [])
 
   useEffect(() => {
-    // Don't block the whole app on Privy's slow cold-start `isReady` — only wait
-    // on the fast SecureStore read. Login/home is decided from `user` as it resolves.
-    if (onboarded === null) return
-    if (!onboarded) {
+    if (!gate) return
+    // Only wait on the fast SecureStore read, not Privy's slow cold-start.
+    if (!gate.onboarded) {
       router.replace('/onboarding')
-    } else if (isReady && user) {
+    } else if ((isReady && user) || gate.entered) {
       router.replace('/home')
     } else {
       router.replace('/login')
     }
-  }, [isReady, onboarded, user])
+  }, [isReady, user, gate])
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>

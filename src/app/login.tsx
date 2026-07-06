@@ -1,6 +1,7 @@
 import { useEmbeddedSolanaWallet, useLoginWithEmail, usePrivy } from '@privy-io/expo'
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
+import * as SecureStore from 'expo-secure-store'
 import { ArrowRight, Check, Mail, ShieldCheck, Sparkles } from 'lucide-react-native'
 import LottieView from 'lottie-react-native'
 import { useEffect, useRef, useState } from 'react'
@@ -37,6 +38,7 @@ export default function LoginScreen() {
   const [color, setColor] = useState<string>(game.color)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [guest, setGuest] = useState(false)
   const flowStarted = useRef(false)
 
   // Returning user already has a Privy session → skip straight to the app.
@@ -74,16 +76,22 @@ export default function LoginScreen() {
     }
   }
 
+  const playAsGuest = () => {
+    setGuest(true)
+    setStep('identity')
+  }
+
   const handleEnter = async () => {
     setBusy(true)
     try {
-      if (!solana?.wallets?.length && solana?.create) {
+      if (!guest && !solana?.wallets?.length && solana?.create) {
         await solana.create()
       }
     } catch {
       // wallet may already exist
     } finally {
       game.setIdentity(name, color)
+      await SecureStore.setItemAsync('zorr.entered', '1')
       router.replace('/home')
     }
   }
@@ -122,6 +130,9 @@ export default function LoginScreen() {
                       editable={!busy}
                     />
                     <PrimaryButton label="Send code" busy={busy} onPress={handleSendCode} />
+                    <TouchableOpacity onPress={playAsGuest} disabled={busy}>
+                      <Text style={styles.link}>Skip — play as guest</Text>
+                    </TouchableOpacity>
                   </StepBody>
                 ) : step === 'code' ? (
                   <StepBody
