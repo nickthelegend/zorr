@@ -1,0 +1,2 @@
+IDL program-id: BSDY7ZusGE7372ydW7K8BuE8ZoiYumTBrAR9uymPGL1F
+explorer: https://explorer.solana.com/address/BSDY7ZusGE7372ydW7K8BuE8ZoiYumTBrAR9uymPGL1F?cluster=devnet
