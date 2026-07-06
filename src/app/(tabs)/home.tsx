@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { GlassCard } from '../../components/glass-card'
 import { levelForXp, useGame } from '../../features/game/game-store'
+import { tileAreaKm2 } from '../../features/run/use-run-session'
 import { colors, fonts, radius } from '../../theme'
 
 function StatCard({ icon, label, value, delay }: { icon: ReactNode; label: string; value: string; delay: number }) {
@@ -57,7 +58,12 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.statRow}>
-          <StatCard icon={<Flag color={colors.territory} size={22} />} label="Tiles held" value={`${game.tiles.size}`} delay={80} />
+          <StatCard
+            icon={<Flag color={colors.territory} size={22} />}
+            label="km² held"
+            value={`${(game.tiles.size * tileAreaKm2(17.4239)).toFixed(2)}`}
+            delay={80}
+          />
           <StatCard icon={<Trophy color={colors.gold} size={22} />} label="Level" value={`${level}`} delay={160} />
           <StatCard icon={<Coins color={colors.primary} size={22} />} label="$ZORR" value={`${game.xp}`} delay={240} />
         </View>
@@ -69,8 +75,8 @@ export default function HomeScreen() {
                 <Footprints color={colors.text} size={26} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.ctaTitle}>Walk &amp; Capture the Land</Text>
-                <Text style={styles.ctaSub}>Move to claim tiles. Each claim is a real on-chain tx.</Text>
+                <Text style={styles.ctaTitle}>Start a Run</Text>
+                <Text style={styles.ctaSub}>Capture territory as you move. Every run logs on-chain.</Text>
               </View>
             </LinearGradient>
           </TouchableOpacity>

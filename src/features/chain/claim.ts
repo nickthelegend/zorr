@@ -3,12 +3,11 @@ import {
   appendTransactionMessageInstruction,
   createKeyPairSignerFromBytes,
   createSolanaRpc,
-  createSolanaRpcSubscriptions,
   createTransactionMessage,
+  getBase64EncodedWireTransaction,
   getSignatureFromTransaction,
   type KeyPairSigner,
   pipe,
-  sendAndConfirmTransactionFactory,
   setTransactionMessageFeePayerSigner,
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
@@ -17,7 +16,6 @@ import {
 // Solana devnet (Stage 1). Stage 2 swaps this for the MagicBlock ER endpoint
 // once the delegated tile-claim program is deployed.
 const RPC_HTTP = 'https://api.devnet.solana.com'
-const RPC_WS = 'wss://api.devnet.solana.com'
 
 let signerPromise: Promise<KeyPairSigner> | null = null
 function getSigner() {
@@ -40,19 +38,16 @@ export function explorerTxUrl(sig: string) {
 
 export class UnfundedError extends Error {}
 
-/** Sign + send a real on-chain tile-claim transaction. Returns the tx signature. */
-export async function claimTileOnChain(tileKey: string, lat: number, lng: number): Promise<string> {
+/** Sign + send a real on-chain memo transaction from the Zorr wallet. Returns the signature. */
+async function sendMemoTx(memo: string): Promise<string> {
   const signer = await getSigner()
   const rpc = createSolanaRpc(RPC_HTTP)
-  const rpcSubscriptions = createSolanaRpcSubscriptions(RPC_WS)
 
   // Fast, deterministic unfunded check (fees ~5000 lamports).
   const { value: bal } = await rpc.getBalance(signer.address).send()
   if (bal < 10_000n) throw new UnfundedError('Zorr wallet needs devnet SOL')
 
   const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
-  const memo = `ZORR|claim|${tileKey}|${lat.toFixed(5)},${lng.toFixed(5)}`
-
   const message = pipe(
     createTransactionMessage({ version: 0 }),
     (m) => setTransactionMessageFeePayerSigner(signer, m),
@@ -62,11 +57,14 @@ export async function claimTileOnChain(tileKey: string, lat: number, lng: number
 
   const signed = await signTransactionMessageWithSigners(message)
   const signature = getSignatureFromTransaction(signed)
+  const wire = getBase64EncodedWireTransaction(signed)
 
+  // Send over HTTP only — kit's sendAndConfirm relies on WebSocket subscriptions
+  // and AbortSignal.throwIfAborted(), neither available under Hermes (RN).
   try {
-    const send = sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })
-    // `signed` uses a blockhash lifetime at runtime; the signer's return type widens it.
-    await send(signed as Parameters<typeof send>[0], { commitment: 'confirmed' })
+    await rpc
+      .sendTransaction(wire, { encoding: 'base64', preflightCommitment: 'confirmed', maxRetries: 5n })
+      .send()
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if (/insufficient|debit an account|attempt to debit|simulation failed/i.test(msg)) {
@@ -75,5 +73,24 @@ export async function claimTileOnChain(tileKey: string, lat: number, lng: number
     throw e
   }
 
+  // Light HTTP confirmation poll (no WebSocket/AbortSignal).
+  for (let i = 0; i < 12; i++) {
+    await new Promise((r) => setTimeout(r, 600))
+    const { value } = await rpc.getSignatureStatuses([signature]).send()
+    const status = value[0]
+    if (status?.err) throw new Error(`Transaction failed: ${JSON.stringify(status.err)}`)
+    if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') break
+  }
+
   return signature
+}
+
+/** Log a single captured tile on-chain. */
+export function claimTileOnChain(tileKey: string, lat: number, lng: number) {
+  return sendMemoTx(`ZORR|claim|${tileKey}|${lat.toFixed(5)},${lng.toFixed(5)}`)
+}
+
+/** Log a completed run on-chain (distance, area captured, tile count). */
+export function logRunOnChain(distanceKm: number, areaKm2: number, tileCount: number) {
+  return sendMemoTx(`ZORR|run|${distanceKm.toFixed(2)}km|${areaKm2.toFixed(4)}km2|${tileCount}tiles`)
 }

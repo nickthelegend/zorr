@@ -23,7 +23,7 @@ export default function Index() {
     } else if (isReady && user) {
       router.replace('/home')
     } else {
-      router.replace('/login')
+      router.replace('/home') // TEMP dev bypass (revert)
     }
   }, [isReady, onboarded, user])
 

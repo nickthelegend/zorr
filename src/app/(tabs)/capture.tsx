@@ -1,32 +1,24 @@
 import * as Location from 'expo-location'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Activity, Check, ExternalLink, Flag, Footprints, Gauge, Loader, MapPin, X, Zap } from 'lucide-react-native'
+import { Linking } from 'react-native'
+import { Activity, Check, ExternalLink, Footprints, Play, Square, X } from 'lucide-react-native'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import MapView, { Circle, Polygon, PROVIDER_GOOGLE } from 'react-native-maps'
-import Animated, {
-  FadeIn,
-  FadeInUp,
-  FadeOut,
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated'
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import MapView, { Polygon, Polyline, PROVIDER_GOOGLE } from 'react-native-maps'
+import Animated, { FadeIn, FadeInUp, FadeOut } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { claimTileOnChain, explorerTxUrl, UnfundedError } from '../../features/chain/claim'
+import { explorerTxUrl, logRunOnChain, UnfundedError } from '../../features/chain/claim'
 import { darkMapStyle } from '../../features/capture/map-style'
-import { tileKey, tilePolygon, tilesAround } from '../../features/capture/tiles'
+import { tilePolygon } from '../../features/capture/tiles'
 import { useGame } from '../../features/game/game-store'
+import { formatDuration, formatPace, RunSummary, tileAreaKm2, useRunSession } from '../../features/run/use-run-session'
 import { colors, fonts, radius } from '../../theme'
 
 type Fix = { lat: number; lng: number; speed: number; accuracy: number }
-type Toast = { kind: 'pending' | 'ok' | 'err'; msg: string; url?: string } | null
+type Toast = { kind: 'ok' | 'err'; msg: string; url?: string } | null
 
 const MAX_WALK_MS = 8
-const COMBO_WINDOW_MS = 60_000
-
 function activityFor(speed: number) {
   if (speed < 0.3) return { label: 'Idle', ok: true }
   if (speed < 2.2) return { label: 'Walking', ok: true }
@@ -34,36 +26,32 @@ function activityFor(speed: number) {
   return { label: 'Vehicle', ok: false }
 }
 
-function HudChip({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
+function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <View style={styles.chip}>
-      {icon}
-      <View>
-        <Text style={styles.chipValue}>{value}</Text>
-        <Text style={styles.chipLabel}>{label}</Text>
-      </View>
+    <View style={styles.stat}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
     </View>
   )
 }
 
-export default function CaptureScreen() {
+export default function RunScreen() {
   const mapRef = useRef<MapView>(null)
   const game = useGame()
   const [fix, setFix] = useState<Fix | null>(null)
   const [denied, setDenied] = useState(false)
-  const [claiming, setClaiming] = useState(false)
+  const [summary, setSummary] = useState<RunSummary | null>(null)
+  const [logging, setLogging] = useState(false)
   const [toast, setToast] = useState<Toast>(null)
-  const [combo, setCombo] = useState(0)
-  const lastCaptureAt = useRef(0)
   const centered = useRef(false)
 
-  // Floating "+XP" burst.
-  const burst = useSharedValue(0)
-  const [burstText, setBurstText] = useState('')
-  const burstStyle = useAnimatedStyle(() => ({
-    opacity: burst.value,
-    transform: [{ translateY: (1 - burst.value) * 40 - 20 }, { scale: 0.8 + burst.value * 0.4 }],
-  }))
+  const run = useRunSession({ onCapture: (key) => game.addCapture(key, 1) })
+
+  // Keep the latest callbacks in refs so the GPS effect never runs on stale closures.
+  const onFixRef = useRef(run.onFix)
+  onFixRef.current = run.onFix
+  const hasTileRef = useRef(game.hasTile)
+  hasTileRef.current = game.hasTile
 
   // Real device GPS.
   useEffect(() => {
@@ -101,6 +89,16 @@ export default function CaptureScreen() {
     }
   }, [])
 
+  // Feed each fix into the run session (captures ground you cover).
+  useEffect(() => {
+    if (!fix) return
+    onFixRef.current(
+      { latitude: fix.lat, longitude: fix.lng },
+      activityFor(fix.speed).ok,
+      hasTileRef.current,
+    )
+  }, [fix])
+
   useEffect(() => {
     if (fix && !centered.current) {
       centered.current = true
@@ -112,42 +110,31 @@ export default function CaptureScreen() {
   }, [fix])
 
   const activity = useMemo(() => activityFor(fix?.speed ?? 0), [fix?.speed])
-  const currentKey = fix ? tileKey(fix.lat, fix.lng) : null
-  const onCurrentTile = currentKey ? !game.hasTile(currentKey) : false
-  const gridKeys = useMemo(() => (fix ? tilesAround(fix.lat, fix.lng, 4) : []), [fix])
+  const nominalLat = fix?.lat ?? 17.4239
+  const totalAreaKm2 = game.tiles.size * tileAreaKm2(nominalLat)
 
-  const playBurst = (text: string) => {
-    setBurstText(text)
-    burst.value = withSequence(withTiming(1, { duration: 250 }), withTiming(0, { duration: 900 }))
-  }
+  const endRun = useCallback(() => setSummary(run.stop()), [run])
 
-  const capture = useCallback(async () => {
-    if (!fix || !currentKey || !activity.ok || claiming) return
-    const now = Date.now()
-    const nextCombo = now - lastCaptureAt.current < COMBO_WINDOW_MS ? combo + 1 : 1
-    setClaiming(true)
-    setToast({ kind: 'pending', msg: 'Claiming tile on-chain…' })
-    try {
-      const sig = await claimTileOnChain(currentKey, fix.lat, fix.lng)
-      const award = game.addCapture(currentKey, nextCombo)
-      setCombo(nextCombo)
-      lastCaptureAt.current = now
-      playBurst(`+${award} $ZORR${nextCombo > 1 ? `  ×${nextCombo}` : ''}`)
-      setToast({ kind: 'ok', msg: `Tile claimed on-chain ✓  +${award} $ZORR`, url: explorerTxUrl(sig) })
-    } catch (e) {
-      console.warn('[zorr claim error]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
-      setCombo(0)
-      if (e instanceof UnfundedError) {
-        setToast({ kind: 'err', msg: 'Fund your Zorr wallet with devnet SOL to claim.' })
-      } else {
-        setToast({ kind: 'err', msg: 'Claim failed — tap Capture to retry.' })
+  const logRun = useCallback(
+    async (s: RunSummary) => {
+      setLogging(true)
+      try {
+        const sig = await logRunOnChain(s.distanceKm, s.areaKm2, s.tiles.length)
+        setToast({ kind: 'ok', msg: 'Run logged on-chain ✓', url: explorerTxUrl(sig) })
+        setSummary(null)
+      } catch (e) {
+        setToast({
+          kind: 'err',
+          msg: e instanceof UnfundedError ? 'Fund your Zorr wallet with devnet SOL.' : 'Log failed — try again.',
+        })
+      } finally {
+        setLogging(false)
       }
-    } finally {
-      setClaiming(false)
-    }
-  }, [fix, currentKey, activity.ok, claiming, combo, game])
+    },
+    [],
+  )
 
-  const speedKmh = ((fix?.speed ?? 0) * 3.6).toFixed(1)
+  const ownedTiles = useMemo(() => [...game.tiles], [game.tiles])
 
   return (
     <View style={styles.container}>
@@ -162,146 +149,159 @@ export default function CaptureScreen() {
         toolbarEnabled={false}
         initialRegion={{ latitude: 17.4239, longitude: 78.4738, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
       >
-        {gridKeys.map((key) => {
-          const mine = game.hasTile(key)
-          const isCurrent = key === currentKey
-          return (
-            <Polygon
-              key={key}
-              coordinates={tilePolygon(key)}
-              strokeColor={mine ? colors.territory : isCurrent ? colors.primary : 'rgba(255,255,255,0.14)'}
-              strokeWidth={mine || isCurrent ? 2 : 1}
-              fillColor={mine ? 'rgba(34,211,166,0.30)' : isCurrent ? 'rgba(124,58,237,0.18)' : 'rgba(124,58,237,0.03)'}
-            />
-          )
-        })}
-        {fix ? (
-          <Circle
-            center={{ latitude: fix.lat, longitude: fix.lng }}
-            radius={Math.max(15, fix.accuracy)}
-            strokeColor="rgba(124,58,237,0.5)"
-            fillColor="rgba(124,58,237,0.10)"
+        {ownedTiles.map((key) => (
+          <Polygon
+            key={key}
+            coordinates={tilePolygon(key)}
+            strokeColor={game.color}
+            strokeWidth={1.5}
+            fillColor={game.color + '4D'}
           />
+        ))}
+        {run.path.length > 1 ? (
+          <Polyline coordinates={run.path} strokeColor={game.color} strokeWidth={6} />
         ) : null}
       </MapView>
 
-      {/* Floating XP burst */}
-      <Animated.View pointerEvents="none" style={[styles.burst, burstStyle]}>
-        <Text style={styles.burstText}>{burstText}</Text>
-      </Animated.View>
-
       <SafeAreaView style={styles.overlay} edges={['top', 'bottom']} pointerEvents="box-none">
-        <Animated.View entering={FadeIn} style={styles.hud} pointerEvents="none">
-          <HudChip icon={<Gauge color={activity.ok ? colors.territory : colors.enemy} size={18} />} value={`${speedKmh} km/h`} label="Speed" />
-          <HudChip icon={<Flag color={colors.gold} size={18} />} value={`${game.tiles.size}`} label="Tiles" />
-          <HudChip icon={<Activity color={activity.ok ? colors.gold : colors.enemy} size={18} />} value={activity.label} label="Activity" />
+        {/* Top: activity / running badge */}
+        <Animated.View entering={FadeIn} style={styles.topRow} pointerEvents="none">
+          {run.running ? (
+            <View style={[styles.badge, { borderColor: colors.enemy }]}>
+              <View style={styles.recDot} />
+              <Text style={styles.badgeText}>Recording run</Text>
+            </View>
+          ) : (
+            <View style={styles.badge}>
+              <Activity color={activity.ok ? colors.territory : colors.enemy} size={14} />
+              <Text style={styles.badgeText}>{activity.label}</Text>
+            </View>
+          )}
         </Animated.View>
-
-        {combo > 1 ? (
-          <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.comboPill} pointerEvents="none">
-            <Zap color={colors.gold} size={14} />
-            <Text style={styles.comboText}>{combo}× combo</Text>
-          </Animated.View>
-        ) : null}
 
         <View style={{ flex: 1 }} pointerEvents="none" />
 
-        {/* Toast */}
         {toast ? (
           <Animated.View entering={FadeInUp} exiting={FadeOut} style={styles.toastWrap}>
             <TouchableOpacity
               activeOpacity={toast.url ? 0.8 : 1}
               onPress={() => toast.url && Linking.openURL(toast.url)}
-              style={[
-                styles.toast,
-                toast.kind === 'ok' && { borderColor: colors.territory },
-                toast.kind === 'err' && { borderColor: colors.enemy },
-              ]}
+              style={[styles.toast, { borderColor: toast.kind === 'ok' ? colors.territory : colors.enemy }]}
             >
-              {toast.kind === 'pending' ? <Loader color={colors.primary} size={18} /> : null}
-              {toast.kind === 'ok' ? <Check color={colors.territory} size={18} /> : null}
-              {toast.kind === 'err' ? <X color={colors.enemy} size={18} /> : null}
+              {toast.kind === 'ok' ? <Check color={colors.territory} size={18} /> : <X color={colors.enemy} size={18} />}
               <Text style={styles.toastText}>{toast.msg}</Text>
               {toast.url ? <ExternalLink color={colors.textDim} size={16} /> : null}
             </TouchableOpacity>
           </Animated.View>
         ) : null}
 
-        <Animated.View entering={FadeInUp} style={styles.sheet}>
-          {denied ? (
-            <Text style={styles.zoneHint}>Location permission is required to capture land. Enable it in settings.</Text>
-          ) : !fix ? (
-            <Text style={styles.zoneHint}>Acquiring GPS…</Text>
-          ) : (
-            <>
-              <View style={styles.zoneRow}>
-                <MapPin color={colors.territory} size={18} />
-                <Text style={styles.zoneName}>{onCurrentTile ? 'Unclaimed tile' : 'Your tile'}</Text>
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>+{50 * Math.max(1, combo || 1)} $ZORR</Text>
-                </View>
+        {/* Bottom control panel */}
+        {summary ? (
+          <RunSummaryCard summary={summary} xp={summary.tiles.length * 50} logging={logging} onLog={logRun} onDiscard={() => setSummary(null)} />
+        ) : run.running ? (
+          <Animated.View entering={FadeInUp} style={styles.sheet}>
+            <View style={styles.statsRow}>
+              <Stat value={`${run.areaKm2.toFixed(3)}`} label="km² captured" />
+              <Stat value={`${run.distanceKm.toFixed(2)}`} label="km" />
+              <Stat value={formatDuration(run.durationSec)} label="time" />
+              <Stat value={formatPace(run.distanceKm, run.durationSec)} label="pace" />
+            </View>
+            <TouchableOpacity activeOpacity={0.9} onPress={endRun}>
+              <View style={[styles.bigBtn, { backgroundColor: colors.enemy }]}>
+                <Square color="#fff" size={18} fill="#fff" />
+                <Text style={styles.bigBtnText}>End Run</Text>
               </View>
-              <Text style={styles.zoneHint}>
-                {activity.ok
-                  ? 'Stand on a tile and capture it. Each claim is a real on-chain tx.'
-                  : '🚫 Moving too fast — vehicles can’t capture land.'}
-              </Text>
-
-              <TouchableOpacity activeOpacity={0.9} onPress={capture} disabled={!onCurrentTile || !activity.ok || claiming}>
-                <LinearGradient
-                  colors={onCurrentTile && activity.ok && !claiming ? ['#22D3A6', '#0F766E'] : ['#333', '#222']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.captureBtn}
-                >
-                  <Footprints color={onCurrentTile && activity.ok && !claiming ? '#04110C' : colors.textFaint} size={20} />
-                  <Text style={[styles.captureText, (!onCurrentTile || !activity.ok || claiming) && { color: colors.textFaint }]}>
-                    {claiming ? 'Claiming on-chain…' : onCurrentTile ? 'Capture this tile' : 'Tile already yours'}
-                  </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        ) : (
+          <Animated.View entering={FadeInUp} style={styles.sheet}>
+            <View style={styles.idleRow}>
+              <View>
+                <Text style={styles.idleArea}>{totalAreaKm2.toFixed(3)} km²</Text>
+                <Text style={styles.idleLabel}>your territory · {game.tiles.size} tiles</Text>
+              </View>
+              <View style={[styles.dot, { backgroundColor: game.color }]} />
+            </View>
+            {denied ? (
+              <Text style={styles.hint}>Location permission is required to run. Enable it in settings.</Text>
+            ) : !fix ? (
+              <Text style={styles.hint}>Acquiring GPS…</Text>
+            ) : (
+              <TouchableOpacity activeOpacity={0.9} onPress={run.start}>
+                <LinearGradient colors={['#22D3A6', '#0F766E']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.bigBtn}>
+                  <Play color="#04110C" size={18} fill="#04110C" />
+                  <Text style={[styles.bigBtnText, { color: '#04110C' }]}>Start Run</Text>
                 </LinearGradient>
               </TouchableOpacity>
-            </>
-          )}
-        </Animated.View>
+            )}
+          </Animated.View>
+        )}
       </SafeAreaView>
     </View>
+  )
+}
+
+function RunSummaryCard({
+  summary,
+  xp,
+  logging,
+  onLog,
+  onDiscard,
+}: {
+  summary: RunSummary
+  xp: number
+  logging: boolean
+  onLog: (s: RunSummary) => void
+  onDiscard: () => void
+}) {
+  return (
+    <Animated.View entering={FadeInUp} style={styles.summary}>
+      <Text style={styles.summaryTitle}>Run complete</Text>
+      <View style={styles.summaryHeadRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.summaryBig}>{summary.areaKm2.toFixed(3)}</Text>
+          <Text style={styles.summarySub}>km² captured</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.summaryBig, { color: colors.gold }]}>{xp}</Text>
+          <Text style={styles.summarySub}>XP earned</Text>
+        </View>
+      </View>
+      <View style={styles.statsRow}>
+        <Stat value={summary.distanceKm.toFixed(2)} label="km" />
+        <Stat value={formatDuration(summary.durationSec)} label="time" />
+        <Stat value={formatPace(summary.distanceKm, summary.durationSec)} label="pace" />
+        <Stat value={`${summary.tiles.length}`} label="tiles" />
+      </View>
+      <TouchableOpacity activeOpacity={0.9} onPress={() => onLog(summary)} disabled={logging}>
+        <LinearGradient colors={['#7C3AED', '#4C1D95']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.bigBtn}>
+          <Text style={styles.bigBtnText}>{logging ? 'Logging on-chain…' : 'Log run on-chain'}</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onDiscard} disabled={logging}>
+        <Text style={styles.discard}>Skip</Text>
+      </TouchableOpacity>
+    </Animated.View>
   )
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   overlay: { ...StyleSheet.absoluteFillObject, paddingHorizontal: 16 },
-  hud: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  chip: {
-    flex: 1,
+  topRow: { alignItems: 'center', marginTop: 8 },
+  badge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     backgroundColor: 'rgba(0,0,0,0.7)',
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  chipValue: { color: colors.text, fontSize: 14, fontFamily: fonts.mono },
-  chipLabel: { color: colors.textDim, fontSize: 11 },
-  comboPill: {
-    alignSelf: 'center',
-    marginTop: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderWidth: 1,
-    borderColor: colors.gold,
     borderRadius: radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
-  comboText: { color: colors.gold, fontFamily: fonts.display, fontSize: 13 },
-  burst: { position: 'absolute', top: '42%', alignSelf: 'center', zIndex: 10 },
-  burstText: { color: colors.territory, fontFamily: fonts.display, fontSize: 30, textShadowColor: '#000', textShadowRadius: 8 },
+  recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.enemy },
+  badgeText: { color: colors.text, fontSize: 13, fontFamily: fonts.mono },
   toastWrap: { marginBottom: 10 },
   toast: {
     flexDirection: 'row',
@@ -309,7 +309,6 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: 'rgba(10,10,15,0.96)',
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -323,19 +322,16 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 90,
   },
-  zoneRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  zoneName: { color: colors.text, fontSize: 18, fontFamily: fonts.display, flex: 1 },
-  badge: {
-    backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: colors.primaryBorder,
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  badgeText: { color: colors.primary, fontSize: 12, fontWeight: '700' },
-  zoneHint: { color: colors.textDim, fontSize: 13, marginTop: 8, marginBottom: 16 },
-  captureBtn: {
+  idleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
+  idleArea: { color: colors.text, fontSize: 30, fontFamily: fonts.display },
+  idleLabel: { color: colors.textDim, fontSize: 13, marginTop: 2 },
+  dot: { width: 18, height: 18, borderRadius: 9 },
+  hint: { color: colors.textDim, fontSize: 13, textAlign: 'center' },
+  statsRow: { flexDirection: 'row', marginBottom: 18 },
+  stat: { flex: 1, alignItems: 'center' },
+  statValue: { color: colors.text, fontSize: 20, fontFamily: fonts.display },
+  statLabel: { color: colors.textDim, fontSize: 11, marginTop: 2 },
+  bigBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -343,5 +339,18 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: radius.md,
   },
-  captureText: { color: '#04110C', fontSize: 16, fontWeight: '800' },
+  bigBtnText: { color: colors.text, fontSize: 16, fontWeight: '800' },
+  summary: {
+    backgroundColor: 'rgba(10,10,15,0.97)',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    padding: 20,
+    marginBottom: 90,
+  },
+  summaryTitle: { color: colors.textDim, fontSize: 13, textAlign: 'center', marginBottom: 10 },
+  summaryHeadRow: { flexDirection: 'row', marginBottom: 18 },
+  summaryBig: { color: colors.text, fontSize: 34, fontFamily: fonts.display, textAlign: 'center' },
+  summarySub: { color: colors.textDim, fontSize: 12, textAlign: 'center', marginTop: 2 },
+  discard: { color: colors.textDim, fontSize: 14, textAlign: 'center', marginTop: 14 },
 })
