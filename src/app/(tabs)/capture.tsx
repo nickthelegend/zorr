@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { explorerTxUrl, logRunOnChain, UnfundedError } from '../../features/chain/claim'
 import { darkMapStyle } from '../../features/capture/map-style'
-import { tileKey, tilePolygon, tilesAround } from '../../features/capture/tiles'
+import { territoryOutline, tileKey, tilePolygon, tilesAround } from '../../features/capture/tiles'
 import { useGame } from '../../features/game/game-store'
 import { rivalForTile } from '../../features/game/rivals'
 import { formatDuration, formatPace, RunSummary, tileAreaKm2, useRunSession } from '../../features/run/use-run-session'
@@ -157,6 +157,7 @@ export default function RunScreen() {
   }, [])
 
   const ownedTiles = useMemo(() => [...game.tiles], [game.tiles])
+  const ownedOutline = useMemo(() => territoryOutline(ownedTiles), [ownedTiles])
   const glow = game.color + '26'
 
   // Contested rival tiles near the player (recomputed only when you cross a tile).
@@ -183,24 +184,18 @@ export default function RunScreen() {
         toolbarEnabled={false}
         initialRegion={{ latitude: 17.4239, longitude: 78.4738, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
       >
+        {/* Rival ground — soft colored patches (targets to steal) */}
         {contested.map((t) => (
-          <Polygon
-            key={`r${t.key}`}
-            coordinates={tilePolygon(t.key)}
-            strokeColor={t.color + '99'}
-            strokeWidth={1}
-            fillColor={t.color + '22'}
-          />
+          <Polygon key={`r${t.key}`} coordinates={tilePolygon(t.key)} strokeWidth={0} fillColor={t.color + '2E'} />
         ))}
-        {ownedTiles.map((key) => (
-          <Polygon
-            key={key}
-            coordinates={tilePolygon(key)}
-            strokeColor={game.color}
-            strokeWidth={2}
-            fillColor={game.color + '66'}
-          />
-        ))}
+        {/* Your territory — one smooth filled region, not a grid */}
+        {ownedOutline.length >= 3 ? (
+          <Polygon coordinates={ownedOutline} strokeColor={game.color} strokeWidth={3} fillColor={game.color + '4D'} />
+        ) : (
+          ownedTiles.map((key) => (
+            <Polygon key={key} coordinates={tilePolygon(key)} strokeWidth={0} fillColor={game.color + '66'} />
+          ))
+        )}
         {run.path.length > 1 ? (
           <>
             <Polyline coordinates={run.path} strokeColor={glow} strokeWidth={16} />

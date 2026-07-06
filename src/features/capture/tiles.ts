@@ -34,3 +34,33 @@ export function tilesAround(lat: number, lng: number, radius = 4): string[] {
   }
   return keys
 }
+
+/**
+ * Smooth outline enclosing a set of tiles (convex hull of their corners), so
+ * captured land renders as one filled region instead of a grid of squares.
+ * Returns [] for fewer than 3 tiles (fall back to drawing the tiles).
+ */
+export function territoryOutline(keys: string[]): LatLng[] {
+  if (keys.length < 3) return []
+  const pts: { x: number; y: number }[] = []
+  for (const key of keys) {
+    for (const c of tilePolygon(key)) pts.push({ x: c.longitude, y: c.latitude })
+  }
+  pts.sort((a, b) => a.x - b.x || a.y - b.y)
+  const cross = (o: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) =>
+    (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+  const lower: { x: number; y: number }[] = []
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop()
+    lower.push(p)
+  }
+  const upper: { x: number; y: number }[] = []
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i]
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop()
+    upper.push(p)
+  }
+  upper.pop()
+  lower.pop()
+  return lower.concat(upper).map((p) => ({ latitude: p.y, longitude: p.x }))
+}
