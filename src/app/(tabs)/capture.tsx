@@ -3,16 +3,16 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Activity, Flag, Footprints, Gauge, MapPin } from 'lucide-react-native'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import MapView, { Circle, Polygon, PROVIDER_GOOGLE } from 'react-native-maps'
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { WebView } from 'react-native-webview'
 
-import { mapHtml, tileKey } from '../../features/capture/map-html'
+import { darkMapStyle } from '../../features/capture/map-style'
+import { tileKey, tilePolygon, tilesAround } from '../../features/capture/tiles'
 import { colors, fonts, radius } from '../../theme'
 
 type Fix = { lat: number; lng: number; speed: number; accuracy: number }
 
-// GPS speed (m/s) -> activity label + whether captures are allowed (anti-cheat).
 const MAX_WALK_MS = 8 // ~28.8 km/h — above this we flag a vehicle
 function activityFor(speed: number) {
   if (speed < 0.3) return { label: 'Idle', ok: true }
@@ -34,11 +34,11 @@ function HudChip({ icon, value, label }: { icon: React.ReactNode; value: string;
 }
 
 export default function CaptureScreen() {
-  const webRef = useRef<WebView>(null)
+  const mapRef = useRef<MapView>(null)
   const [fix, setFix] = useState<Fix | null>(null)
-  const [ready, setReady] = useState(false)
   const [denied, setDenied] = useState(false)
   const [captured, setCaptured] = useState<Set<string>>(new Set())
+  const centered = useRef(false)
 
   // Real device GPS.
   useEffect(() => {
@@ -60,11 +60,10 @@ export default function CaptureScreen() {
           setDenied(true)
           return
         }
-        // Grab an initial fix fast, then stream updates.
         try {
           apply(await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }))
         } catch {
-          // no initial fix yet; the watcher will deliver one
+          // watcher will deliver one
         }
         sub = await Location.watchPositionAsync(
           { accuracy: Location.Accuracy.High, distanceInterval: 1, timeInterval: 1500 },
@@ -80,19 +79,22 @@ export default function CaptureScreen() {
     }
   }, [])
 
-  // Push location + captured tiles into the map when either changes (once ready).
+  // Recenter the camera the first time we get a fix.
   useEffect(() => {
-    if (!ready || !fix) return
-    webRef.current?.injectJavaScript(`window.zorr && window.zorr.setLocation(${fix.lat},${fix.lng}); true;`)
-  }, [ready, fix])
-  useEffect(() => {
-    if (!ready) return
-    webRef.current?.injectJavaScript(`window.zorr && window.zorr.setCaptured(${JSON.stringify([...captured])}); true;`)
-  }, [ready, captured])
+    if (fix && !centered.current) {
+      centered.current = true
+      mapRef.current?.animateToRegion(
+        { latitude: fix.lat, longitude: fix.lng, latitudeDelta: 0.006, longitudeDelta: 0.006 },
+        600,
+      )
+    }
+  }, [fix])
 
   const activity = useMemo(() => activityFor(fix?.speed ?? 0), [fix?.speed])
   const currentKey = fix ? tileKey(fix.lat, fix.lng) : null
   const onCurrentTile = currentKey ? !captured.has(currentKey) : false
+
+  const gridKeys = useMemo(() => (fix ? tilesAround(fix.lat, fix.lng, 4) : []), [fix])
 
   const capture = useCallback(() => {
     if (!currentKey || !activity.ok) return
@@ -100,50 +102,54 @@ export default function CaptureScreen() {
     // TODO: submit tile claim to the MagicBlock Ephemeral Rollup (session key).
   }, [currentKey, activity.ok])
 
-  const onMessage = useCallback(
-    (e: { nativeEvent: { data: string } }) => {
-      try {
-        const msg = JSON.parse(e.nativeEvent.data)
-        if (msg.type === 'ready') setReady(true)
-        if (msg.type === 'tileTap' && fix && activity.ok) {
-          // allow claiming a tapped tile only if it's the tile you're standing on
-          if (msg.key === tileKey(fix.lat, fix.lng)) {
-            setCaptured((prev) => new Set(prev).add(msg.key))
-          }
-        }
-      } catch {
-        // ignore
-      }
-    },
-    [fix, activity.ok],
-  )
-
   const speedKmh = ((fix?.speed ?? 0) * 3.6).toFixed(1)
 
   return (
     <View style={styles.container}>
-      <WebView
-        ref={webRef}
-        originWhitelist={['*']}
-        source={{ html: mapHtml }}
-        onMessage={onMessage}
-        style={styles.map}
-        javaScriptEnabled
-        domStorageEnabled
-        allowFileAccess
-      />
+      <MapView
+        ref={mapRef}
+        provider={PROVIDER_GOOGLE}
+        style={StyleSheet.absoluteFill}
+        customMapStyle={darkMapStyle}
+        showsUserLocation
+        showsMyLocationButton={false}
+        showsCompass={false}
+        toolbarEnabled={false}
+        initialRegion={{ latitude: 17.4239, longitude: 78.4738, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
+      >
+        {/* Territory grid around the player */}
+        {gridKeys.map((key) => {
+          const mine = captured.has(key)
+          const isCurrent = key === currentKey
+          return (
+            <Polygon
+              key={key}
+              coordinates={tilePolygon(key)}
+              strokeColor={mine ? colors.territory : isCurrent ? colors.primary : 'rgba(255,255,255,0.14)'}
+              strokeWidth={mine || isCurrent ? 2 : 1}
+              fillColor={mine ? 'rgba(34,211,166,0.30)' : isCurrent ? 'rgba(124,58,237,0.18)' : 'rgba(124,58,237,0.03)'}
+            />
+          )
+        })}
+        {fix ? (
+          <Circle
+            center={{ latitude: fix.lat, longitude: fix.lng }}
+            radius={Math.max(15, fix.accuracy)}
+            strokeColor="rgba(124,58,237,0.5)"
+            fillColor="rgba(124,58,237,0.10)"
+          />
+        ) : null}
+      </MapView>
 
       <SafeAreaView style={styles.overlay} edges={['top', 'bottom']} pointerEvents="box-none">
-        {/* Top HUD — real anti-cheat status */}
         <Animated.View entering={FadeIn} style={styles.hud} pointerEvents="none">
           <HudChip icon={<Gauge color={activity.ok ? colors.territory : colors.enemy} size={18} />} value={`${speedKmh} km/h`} label="Speed" />
           <HudChip icon={<Flag color={colors.gold} size={18} />} value={`${captured.size}`} label="Tiles" />
           <HudChip icon={<Activity color={activity.ok ? colors.gold : colors.enemy} size={18} />} value={activity.label} label="Activity" />
         </Animated.View>
 
-        <View style={{ flex: 1 }} />
+        <View style={{ flex: 1 }} pointerEvents="none" />
 
-        {/* Bottom sheet — current zone + capture */}
         <Animated.View entering={FadeInUp} style={styles.sheet}>
           {denied ? (
             <Text style={styles.zoneHint}>Location permission is required to capture land. Enable it in settings.</Text>
@@ -159,7 +165,9 @@ export default function CaptureScreen() {
                 </View>
               </View>
               <Text style={styles.zoneHint}>
-                {activity.ok ? 'Stand on a tile and capture it. Accuracy ±' + Math.round(fix.accuracy) + 'm' : '🚫 Moving too fast — vehicles can’t capture land.'}
+                {activity.ok
+                  ? 'Stand on a tile and capture it. Accuracy ±' + Math.round(fix.accuracy) + 'm'
+                  : '🚫 Moving too fast — vehicles can’t capture land.'}
               </Text>
 
               <TouchableOpacity activeOpacity={0.9} onPress={capture} disabled={!onCurrentTile || !activity.ok}>
@@ -185,7 +193,6 @@ export default function CaptureScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  map: { flex: 1, backgroundColor: colors.background },
   overlay: { ...StyleSheet.absoluteFillObject, paddingHorizontal: 16 },
   hud: { flexDirection: 'row', gap: 8, marginTop: 8 },
   chip: {
