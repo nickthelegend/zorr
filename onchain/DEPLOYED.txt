@@ -1,2 +1,9 @@
 IDL program-id: BSDY7ZusGE7372ydW7K8BuE8ZoiYumTBrAR9uymPGL1F
 explorer: https://explorer.solana.com/address/BSDY7ZusGE7372ydW7K8BuE8ZoiYumTBrAR9uymPGL1F?cluster=devnet
+
+Verified ER flow (devnet):
+  initialize (base): 3RdZp6Nutbtwehkq...
+  delegate -> ER:    2ew8qC5RFQoBNLHU...
+  captureTile ON ER: 32wRmkt5KvSETvNv... (1360ms), 3PRXYNWPvsn... (154ms, gasless)
+  commit ER -> base: VagPBz4UNVG18t1U...
+  ER endpoint: https://devnet-as.magicblock.app
