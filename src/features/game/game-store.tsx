@@ -18,6 +18,7 @@ type GameState = {
   color: string
   hasTile: (key: string) => boolean
   addCapture: (key: string, combo: number) => number
+  award: (xp: number) => void
   setIdentity: (name: string, color: string) => void
   reset: () => void
 }
@@ -97,6 +98,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       color,
       hasTile: (key) => tiles.has(key),
       addCapture,
+      award: (amount) => setXp((x) => x + Math.max(0, amount)),
       setIdentity: (n, c) => {
         setName(n.trim() || 'Explorer')
         setColor(c)

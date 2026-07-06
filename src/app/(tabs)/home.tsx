@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
-import { Bell, Coins, Flame, Play, Trophy } from 'lucide-react-native'
+import { Bell, Coins, Flame, Play, Swords, Trophy } from 'lucide-react-native'
 import { ReactNode } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
@@ -88,6 +88,14 @@ export default function HomeScreen() {
           <Text style={styles.ctaHint}>Capture territory as you move. Every run logs on-chain.</Text>
         </Animated.View>
 
+        <Animated.View entering={FadeInDown.delay(180)}>
+          <TouchableOpacity style={styles.duel} activeOpacity={0.85} onPress={() => router.push('/battle')}>
+            <Swords color={colors.enemy} size={18} />
+            <Text style={styles.duelText}>Duel a rival</Text>
+            <Text style={styles.duelHint}>Bluetooth or quick match</Text>
+          </TouchableOpacity>
+        </Animated.View>
+
         {/* Mini stats */}
         <View style={styles.statRow}>
           <MiniStat icon={<Trophy color={colors.gold} size={20} />} value={`${level}`} label="LEVEL" delay={220} />
@@ -152,6 +160,20 @@ const styles = StyleSheet.create({
   },
   ctaText: { color: '#04110C', fontSize: 17, fontWeight: '800', letterSpacing: 0.3 },
   ctaHint: { color: colors.textDim, fontSize: 12.5, textAlign: 'center', marginTop: 10 },
+  duel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 14,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+  },
+  duelText: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  duelHint: { color: colors.textDim, fontSize: 12, marginLeft: 'auto' },
   statRow: { flexDirection: 'row', gap: 10, marginTop: 22 },
   miniStat: {
     flex: 1,
