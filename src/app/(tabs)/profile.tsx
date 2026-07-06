@@ -7,6 +7,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { GlassCard } from '../../components/glass-card'
+import { levelForXp, useGame } from '../../features/game/game-store'
 import { useSolanaAccount } from '../../features/wallet/use-solana-account'
 import { colors, fonts, radius } from '../../theme'
 
@@ -36,6 +37,9 @@ function Badge({ label, unlocked }: { label: string; unlocked: boolean }) {
 export default function ProfileScreen() {
   const { address } = useSolanaAccount()
   const { logout } = usePrivy()
+  const game = useGame()
+  const { level } = levelForXp(game.xp)
+  const tiles = game.tiles.size
 
   const handleSignOut = async () => {
     await logout()
@@ -61,7 +65,7 @@ export default function ProfileScreen() {
                 <Text style={styles.avatarText}>Z</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.name}>Explorer</Text>
+                <Text style={styles.name}>Level {level} Explorer</Text>
                 <View style={styles.rankRow}>
                   <Shield color={colors.territory} size={14} />
                   <Text style={styles.rank}>{short(address)}</Text>
@@ -69,9 +73,9 @@ export default function ProfileScreen() {
               </View>
             </View>
             <View style={styles.statsRow}>
-              <Stat icon={<Flag color={colors.territory} size={18} />} value="0" label="Tiles" />
-              <Stat icon={<MapPin color={colors.primary} size={18} />} value="0" label="Zones" />
-              <Stat icon={<Footprints color={colors.gold} size={18} />} value="0" label="km walked" />
+              <Stat icon={<Flag color={colors.territory} size={18} />} value={`${tiles}`} label="Tiles" />
+              <Stat icon={<MapPin color={colors.primary} size={18} />} value={`${level}`} label="Level" />
+              <Stat icon={<Footprints color={colors.gold} size={18} />} value={`${game.xp}`} label="$ZORR" />
             </View>
           </GlassCard>
         </Animated.View>
@@ -81,10 +85,10 @@ export default function ProfileScreen() {
           <GlassCard style={{ marginTop: 20 }}>
             <Text style={styles.cardTitle}>Achievements</Text>
             <View style={styles.badgeGrid}>
-              <Badge label="First Capture" unlocked={false} />
-              <Badge label="Land Baron" unlocked={false} />
-              <Badge label="Marathoner" unlocked={false} />
-              <Badge label="Defender" unlocked={false} />
+              <Badge label="First Capture" unlocked={tiles >= 1} />
+              <Badge label="Land Baron" unlocked={tiles >= 10} />
+              <Badge label="Combo Master" unlocked={game.bestStreak >= 5} />
+              <Badge label="Warlord" unlocked={tiles >= 25} />
             </View>
           </GlassCard>
         </Animated.View>

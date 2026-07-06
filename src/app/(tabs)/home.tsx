@@ -1,12 +1,13 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
-import { Bell, Coins, Flag, Footprints, TrendingUp, Trophy } from 'lucide-react-native'
+import { Bell, Coins, Flag, Footprints, TrendingUp, Trophy, Zap } from 'lucide-react-native'
 import { ReactNode } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { GlassCard } from '../../components/glass-card'
+import { levelForXp, useGame } from '../../features/game/game-store'
 import { colors, fonts, radius } from '../../theme'
 
 function StatCard({ icon, label, value, delay }: { icon: ReactNode; label: string; value: string; delay: number }) {
@@ -39,13 +40,15 @@ function Milestone({ label, value, total, color }: { label: string; value: numbe
 }
 
 export default function HomeScreen() {
+  const game = useGame()
+  const { level, into, need } = levelForXp(game.xp)
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Welcome back</Text>
+            <Text style={styles.greeting}>Level {level} Explorer</Text>
             <Text style={styles.brand}>ZORR</Text>
           </View>
           <TouchableOpacity style={styles.bellButton}>
@@ -53,14 +56,12 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Stat cards */}
         <View style={styles.statRow}>
-          <StatCard icon={<Flag color={colors.territory} size={22} />} label="Tiles held" value="0" delay={80} />
-          <StatCard icon={<Trophy color={colors.gold} size={22} />} label="Rank" value="—" delay={160} />
-          <StatCard icon={<Coins color={colors.primary} size={22} />} label="$ZORR" value="0" delay={240} />
+          <StatCard icon={<Flag color={colors.territory} size={22} />} label="Tiles held" value={`${game.tiles.size}`} delay={80} />
+          <StatCard icon={<Trophy color={colors.gold} size={22} />} label="Level" value={`${level}`} delay={160} />
+          <StatCard icon={<Coins color={colors.primary} size={22} />} label="$ZORR" value={`${game.xp}`} delay={240} />
         </View>
 
-        {/* Start walking CTA */}
         <Animated.View entering={FadeInDown.delay(320)}>
           <TouchableOpacity activeOpacity={0.9} onPress={() => router.push('/capture')}>
             <LinearGradient colors={['#7C3AED', '#4C1D95']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cta}>
@@ -69,24 +70,30 @@ export default function HomeScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.ctaTitle}>Walk &amp; Capture the Land</Text>
-                <Text style={styles.ctaSub}>Move to claim tiles. Instant, gasless, on-chain.</Text>
+                <Text style={styles.ctaSub}>Move to claim tiles. Each claim is a real on-chain tx.</Text>
               </View>
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Today's progress */}
         <Animated.View entering={FadeInDown.delay(400)}>
           <GlassCard style={{ marginTop: 20 }}>
             <View style={styles.cardHead}>
               <TrendingUp color={colors.territory} size={18} />
-              <Text style={styles.cardTitle}>Today&apos;s Progress</Text>
+              <Text style={styles.cardTitle}>Progress</Text>
             </View>
-            <Milestone label="Tiles captured" value={0} total={10} color={colors.territory} />
-            <Milestone label="Steps walked" value={0} total={5000} color={colors.primary} />
-            <Milestone label="Zones defended" value={0} total={3} color={colors.gold} />
+            <Milestone label={`XP to level ${level + 1}`} value={into} total={need} color={colors.primary} />
+            <Milestone label="Tiles captured" value={game.tiles.size} total={Math.max(10, Math.ceil((game.tiles.size + 1) / 10) * 10)} color={colors.territory} />
+            <Milestone label="Best combo" value={game.bestStreak} total={Math.max(5, game.bestStreak + 1)} color={colors.gold} />
           </GlassCard>
         </Animated.View>
+
+        {game.bestStreak > 1 ? (
+          <Animated.View entering={FadeInDown.delay(480)} style={styles.streakRow}>
+            <Zap color={colors.gold} size={16} />
+            <Text style={styles.streakText}>Best combo streak: {game.bestStreak}×</Text>
+          </Animated.View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   )
@@ -140,4 +147,6 @@ const styles = StyleSheet.create({
   milestoneValue: { color: colors.textDim, fontSize: 14, fontFamily: fonts.mono },
   track: { height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 4 },
+  streakRow: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center', marginTop: 20 },
+  streakText: { color: colors.gold, fontSize: 14, fontFamily: fonts.display },
 })

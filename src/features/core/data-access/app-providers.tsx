@@ -5,6 +5,8 @@ import { HeroUINativeProvider } from 'heroui-native/provider'
 import { ReactNode } from 'react'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
+import { GameProvider } from '../../game/game-store'
+
 const cluster = createSolanaDevnet()
 const identity: AppIdentity = { name: 'Zorr', uri: 'zorr://zorr' }
 const privyAppId = process.env.EXPO_PUBLIC_PRIVY_APP_ID
@@ -22,7 +24,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <QueryClientProvider client={queryClient}>
           <PrivyProvider appId={privyAppId} clientId={privyClientId}>
             <MobileWalletProvider cluster={cluster} identity={identity}>
-              {children}
+              <GameProvider>{children}</GameProvider>
             </MobileWalletProvider>
           </PrivyProvider>
         </QueryClientProvider>

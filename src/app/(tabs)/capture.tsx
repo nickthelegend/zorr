@@ -1,19 +1,32 @@
 import * as Location from 'expo-location'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Activity, Flag, Footprints, Gauge, MapPin } from 'lucide-react-native'
+import { Activity, Check, ExternalLink, Flag, Footprints, Gauge, Loader, MapPin, X, Zap } from 'lucide-react-native'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import MapView, { Circle, Polygon, PROVIDER_GOOGLE } from 'react-native-maps'
-import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated'
+import Animated, {
+  FadeIn,
+  FadeInUp,
+  FadeOut,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { claimTileOnChain, explorerTxUrl, UnfundedError } from '../../features/chain/claim'
 import { darkMapStyle } from '../../features/capture/map-style'
 import { tileKey, tilePolygon, tilesAround } from '../../features/capture/tiles'
+import { useGame } from '../../features/game/game-store'
 import { colors, fonts, radius } from '../../theme'
 
 type Fix = { lat: number; lng: number; speed: number; accuracy: number }
+type Toast = { kind: 'pending' | 'ok' | 'err'; msg: string; url?: string } | null
 
-const MAX_WALK_MS = 8 // ~28.8 km/h — above this we flag a vehicle
+const MAX_WALK_MS = 8
+const COMBO_WINDOW_MS = 60_000
+
 function activityFor(speed: number) {
   if (speed < 0.3) return { label: 'Idle', ok: true }
   if (speed < 2.2) return { label: 'Walking', ok: true }
@@ -35,10 +48,22 @@ function HudChip({ icon, value, label }: { icon: React.ReactNode; value: string;
 
 export default function CaptureScreen() {
   const mapRef = useRef<MapView>(null)
+  const game = useGame()
   const [fix, setFix] = useState<Fix | null>(null)
   const [denied, setDenied] = useState(false)
-  const [captured, setCaptured] = useState<Set<string>>(new Set())
+  const [claiming, setClaiming] = useState(false)
+  const [toast, setToast] = useState<Toast>(null)
+  const [combo, setCombo] = useState(0)
+  const lastCaptureAt = useRef(0)
   const centered = useRef(false)
+
+  // Floating "+XP" burst.
+  const burst = useSharedValue(0)
+  const [burstText, setBurstText] = useState('')
+  const burstStyle = useAnimatedStyle(() => ({
+    opacity: burst.value,
+    transform: [{ translateY: (1 - burst.value) * 40 - 20 }, { scale: 0.8 + burst.value * 0.4 }],
+  }))
 
   // Real device GPS.
   useEffect(() => {
@@ -56,14 +81,11 @@ export default function CaptureScreen() {
     ;(async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync()
-        if (status !== 'granted') {
-          setDenied(true)
-          return
-        }
+        if (status !== 'granted') return setDenied(true)
         try {
           apply(await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }))
         } catch {
-          // watcher will deliver one
+          /* watcher delivers one */
         }
         sub = await Location.watchPositionAsync(
           { accuracy: Location.Accuracy.High, distanceInterval: 1, timeInterval: 1500 },
@@ -79,7 +101,6 @@ export default function CaptureScreen() {
     }
   }, [])
 
-  // Recenter the camera the first time we get a fix.
   useEffect(() => {
     if (fix && !centered.current) {
       centered.current = true
@@ -92,15 +113,39 @@ export default function CaptureScreen() {
 
   const activity = useMemo(() => activityFor(fix?.speed ?? 0), [fix?.speed])
   const currentKey = fix ? tileKey(fix.lat, fix.lng) : null
-  const onCurrentTile = currentKey ? !captured.has(currentKey) : false
-
+  const onCurrentTile = currentKey ? !game.hasTile(currentKey) : false
   const gridKeys = useMemo(() => (fix ? tilesAround(fix.lat, fix.lng, 4) : []), [fix])
 
-  const capture = useCallback(() => {
-    if (!currentKey || !activity.ok) return
-    setCaptured((prev) => new Set(prev).add(currentKey))
-    // TODO: submit tile claim to the MagicBlock Ephemeral Rollup (session key).
-  }, [currentKey, activity.ok])
+  const playBurst = (text: string) => {
+    setBurstText(text)
+    burst.value = withSequence(withTiming(1, { duration: 250 }), withTiming(0, { duration: 900 }))
+  }
+
+  const capture = useCallback(async () => {
+    if (!fix || !currentKey || !activity.ok || claiming) return
+    const now = Date.now()
+    const nextCombo = now - lastCaptureAt.current < COMBO_WINDOW_MS ? combo + 1 : 1
+    setClaiming(true)
+    setToast({ kind: 'pending', msg: 'Claiming tile on-chain…' })
+    try {
+      const sig = await claimTileOnChain(currentKey, fix.lat, fix.lng)
+      const award = game.addCapture(currentKey, nextCombo)
+      setCombo(nextCombo)
+      lastCaptureAt.current = now
+      playBurst(`+${award} $ZORR${nextCombo > 1 ? `  ×${nextCombo}` : ''}`)
+      setToast({ kind: 'ok', msg: `Tile claimed on-chain ✓  +${award} $ZORR`, url: explorerTxUrl(sig) })
+    } catch (e) {
+      console.warn('[zorr claim error]', e instanceof Error ? `${e.name}: ${e.message}` : String(e))
+      setCombo(0)
+      if (e instanceof UnfundedError) {
+        setToast({ kind: 'err', msg: 'Fund your Zorr wallet with devnet SOL to claim.' })
+      } else {
+        setToast({ kind: 'err', msg: 'Claim failed — tap Capture to retry.' })
+      }
+    } finally {
+      setClaiming(false)
+    }
+  }, [fix, currentKey, activity.ok, claiming, combo, game])
 
   const speedKmh = ((fix?.speed ?? 0) * 3.6).toFixed(1)
 
@@ -117,9 +162,8 @@ export default function CaptureScreen() {
         toolbarEnabled={false}
         initialRegion={{ latitude: 17.4239, longitude: 78.4738, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
       >
-        {/* Territory grid around the player */}
         {gridKeys.map((key) => {
-          const mine = captured.has(key)
+          const mine = game.hasTile(key)
           const isCurrent = key === currentKey
           return (
             <Polygon
@@ -141,14 +185,47 @@ export default function CaptureScreen() {
         ) : null}
       </MapView>
 
+      {/* Floating XP burst */}
+      <Animated.View pointerEvents="none" style={[styles.burst, burstStyle]}>
+        <Text style={styles.burstText}>{burstText}</Text>
+      </Animated.View>
+
       <SafeAreaView style={styles.overlay} edges={['top', 'bottom']} pointerEvents="box-none">
         <Animated.View entering={FadeIn} style={styles.hud} pointerEvents="none">
           <HudChip icon={<Gauge color={activity.ok ? colors.territory : colors.enemy} size={18} />} value={`${speedKmh} km/h`} label="Speed" />
-          <HudChip icon={<Flag color={colors.gold} size={18} />} value={`${captured.size}`} label="Tiles" />
+          <HudChip icon={<Flag color={colors.gold} size={18} />} value={`${game.tiles.size}`} label="Tiles" />
           <HudChip icon={<Activity color={activity.ok ? colors.gold : colors.enemy} size={18} />} value={activity.label} label="Activity" />
         </Animated.View>
 
+        {combo > 1 ? (
+          <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.comboPill} pointerEvents="none">
+            <Zap color={colors.gold} size={14} />
+            <Text style={styles.comboText}>{combo}× combo</Text>
+          </Animated.View>
+        ) : null}
+
         <View style={{ flex: 1 }} pointerEvents="none" />
+
+        {/* Toast */}
+        {toast ? (
+          <Animated.View entering={FadeInUp} exiting={FadeOut} style={styles.toastWrap}>
+            <TouchableOpacity
+              activeOpacity={toast.url ? 0.8 : 1}
+              onPress={() => toast.url && Linking.openURL(toast.url)}
+              style={[
+                styles.toast,
+                toast.kind === 'ok' && { borderColor: colors.territory },
+                toast.kind === 'err' && { borderColor: colors.enemy },
+              ]}
+            >
+              {toast.kind === 'pending' ? <Loader color={colors.primary} size={18} /> : null}
+              {toast.kind === 'ok' ? <Check color={colors.territory} size={18} /> : null}
+              {toast.kind === 'err' ? <X color={colors.enemy} size={18} /> : null}
+              <Text style={styles.toastText}>{toast.msg}</Text>
+              {toast.url ? <ExternalLink color={colors.textDim} size={16} /> : null}
+            </TouchableOpacity>
+          </Animated.View>
+        ) : null}
 
         <Animated.View entering={FadeInUp} style={styles.sheet}>
           {denied ? (
@@ -161,25 +238,25 @@ export default function CaptureScreen() {
                 <MapPin color={colors.territory} size={18} />
                 <Text style={styles.zoneName}>{onCurrentTile ? 'Unclaimed tile' : 'Your tile'}</Text>
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>+50 $ZORR</Text>
+                  <Text style={styles.badgeText}>+{50 * Math.max(1, combo || 1)} $ZORR</Text>
                 </View>
               </View>
               <Text style={styles.zoneHint}>
                 {activity.ok
-                  ? 'Stand on a tile and capture it. Accuracy ±' + Math.round(fix.accuracy) + 'm'
+                  ? 'Stand on a tile and capture it. Each claim is a real on-chain tx.'
                   : '🚫 Moving too fast — vehicles can’t capture land.'}
               </Text>
 
-              <TouchableOpacity activeOpacity={0.9} onPress={capture} disabled={!onCurrentTile || !activity.ok}>
+              <TouchableOpacity activeOpacity={0.9} onPress={capture} disabled={!onCurrentTile || !activity.ok || claiming}>
                 <LinearGradient
-                  colors={onCurrentTile && activity.ok ? ['#22D3A6', '#0F766E'] : ['#333', '#222']}
+                  colors={onCurrentTile && activity.ok && !claiming ? ['#22D3A6', '#0F766E'] : ['#333', '#222']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.captureBtn}
                 >
-                  <Footprints color={onCurrentTile && activity.ok ? '#04110C' : colors.textFaint} size={20} />
-                  <Text style={[styles.captureText, (!onCurrentTile || !activity.ok) && { color: colors.textFaint }]}>
-                    {onCurrentTile ? 'Capture this tile' : 'Tile already yours'}
+                  <Footprints color={onCurrentTile && activity.ok && !claiming ? '#04110C' : colors.textFaint} size={20} />
+                  <Text style={[styles.captureText, (!onCurrentTile || !activity.ok || claiming) && { color: colors.textFaint }]}>
+                    {claiming ? 'Claiming on-chain…' : onCurrentTile ? 'Capture this tile' : 'Tile already yours'}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -209,6 +286,35 @@ const styles = StyleSheet.create({
   },
   chipValue: { color: colors.text, fontSize: 14, fontFamily: fonts.mono },
   chipLabel: { color: colors.textDim, fontSize: 11 },
+  comboPill: {
+    alignSelf: 'center',
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderWidth: 1,
+    borderColor: colors.gold,
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  comboText: { color: colors.gold, fontFamily: fonts.display, fontSize: 13 },
+  burst: { position: 'absolute', top: '42%', alignSelf: 'center', zIndex: 10 },
+  burstText: { color: colors.territory, fontFamily: fonts.display, fontSize: 30, textShadowColor: '#000', textShadowRadius: 8 },
+  toastWrap: { marginBottom: 10 },
+  toast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(10,10,15,0.96)',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  toastText: { color: colors.text, fontSize: 13, flex: 1 },
   sheet: {
     backgroundColor: 'rgba(10,10,15,0.94)',
     borderWidth: 1,

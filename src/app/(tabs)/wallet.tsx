@@ -1,40 +1,31 @@
 import { address as toAddress, createSolanaRpc, lamports } from '@solana/kit'
 import { useMutation } from '@tanstack/react-query'
 import { LinearGradient } from 'expo-linear-gradient'
-import { ArrowDownLeft, Coins, Droplet, RefreshCw } from 'lucide-react-native'
-import { ReactNode } from 'react'
+import { Coins, Droplet, RefreshCw } from 'lucide-react-native'
+import { useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { GlassCard } from '../../components/glass-card'
+import { getSignerAddress } from '../../features/chain/claim'
 import { DEVNET_RPC, useDevnetBalance } from '../../features/wallet/use-devnet-balance'
-import { useSolanaAccount } from '../../features/wallet/use-solana-account'
 import { colors, fonts, radius } from '../../theme'
 
 const rpc = createSolanaRpc(DEVNET_RPC)
 
-function short(addr?: string) {
-  return addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : '—'
-}
-
-function Action({ icon, label, onPress, disabled }: { icon: ReactNode; label: string; onPress?: () => void; disabled?: boolean }) {
-  return (
-    <TouchableOpacity style={[styles.action, disabled && { opacity: 0.5 }]} activeOpacity={0.85} onPress={onPress} disabled={disabled}>
-      <View style={styles.actionIcon}>{icon}</View>
-      <Text style={styles.actionLabel}>{label}</Text>
-    </TouchableOpacity>
-  )
-}
-
 export default function WalletScreen() {
-  const { address } = useSolanaAccount()
-  const { data: balance, isLoading, refetch, isRefetching } = useDevnetBalance(address)
+  const [addr, setAddr] = useState<string>()
+  const { data: balance, isLoading, refetch, isRefetching } = useDevnetBalance(addr)
+
+  useEffect(() => {
+    getSignerAddress().then(setAddr).catch(() => {})
+  }, [])
 
   const airdrop = useMutation({
     mutationFn: async () => {
-      if (!address) throw new Error('No wallet')
-      await rpc.requestAirdrop(toAddress(address), lamports(1_000_000_000n)).send()
+      if (!addr) throw new Error('No wallet')
+      await rpc.requestAirdrop(toAddress(addr), lamports(1_000_000_000n)).send()
     },
     onSuccess: () => setTimeout(() => refetch(), 2500),
   })
@@ -44,34 +35,39 @@ export default function WalletScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.brand}>Wallet</Text>
 
-        {/* Balance card */}
         <Animated.View entering={FadeInDown.delay(60)}>
           <LinearGradient colors={['#7C3AED', '#4C1D95']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.balanceCard}>
             <View style={styles.balanceHead}>
-              <Text style={styles.balanceLabel}>Devnet balance</Text>
+              <Text style={styles.balanceLabel}>Zorr game wallet · devnet</Text>
               <TouchableOpacity onPress={() => refetch()} hitSlop={10}>
                 <RefreshCw color="rgba(255,255,255,0.8)" size={16} style={isRefetching ? { opacity: 0.4 } : undefined} />
               </TouchableOpacity>
             </View>
             <Text style={styles.balanceValue}>{isLoading ? '…' : `${(balance ?? 0).toFixed(4)} SOL`}</Text>
-            <Text style={styles.address}>{short(address)}</Text>
+            <Text selectable style={styles.address}>
+              {addr ?? '…'}
+            </Text>
           </LinearGradient>
         </Animated.View>
 
-        {/* Actions */}
-        <Animated.View entering={FadeInDown.delay(140)} style={styles.actionsRow}>
-          <Action
-            icon={<Droplet color={colors.territory} size={20} />}
-            label={airdrop.isPending ? 'Requesting…' : 'Airdrop 1 SOL'}
+        <Text style={styles.fundHint}>
+          Fund this address with devnet SOL (long-press to copy) to sign on-chain tile claims.
+        </Text>
+
+        <Animated.View entering={FadeInDown.delay(140)}>
+          <TouchableOpacity
+            style={[styles.action, (!addr || airdrop.isPending) && { opacity: 0.5 }]}
+            activeOpacity={0.85}
             onPress={() => airdrop.mutate()}
-            disabled={!address || airdrop.isPending}
-          />
-          <Action icon={<ArrowDownLeft color={colors.primary} size={20} />} label="Receive" disabled={!address} />
+            disabled={!addr || airdrop.isPending}
+          >
+            <Droplet color={colors.territory} size={20} />
+            <Text style={styles.actionLabel}>{airdrop.isPending ? 'Requesting airdrop…' : 'Request 1 devnet SOL'}</Text>
+          </TouchableOpacity>
         </Animated.View>
-        {airdrop.isError ? <Text style={styles.err}>Airdrop failed (devnet faucet is rate-limited — try again).</Text> : null}
+        {airdrop.isError ? <Text style={styles.err}>Faucet rate-limited — fund the address manually.</Text> : null}
         {airdrop.isSuccess ? <Text style={styles.ok}>Airdrop requested — balance updates shortly.</Text> : null}
 
-        {/* Assets */}
         <Animated.View entering={FadeInDown.delay(220)}>
           <GlassCard style={{ marginTop: 20 }}>
             <View style={styles.cardHead}>
@@ -103,27 +99,21 @@ const styles = StyleSheet.create({
   balanceHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   balanceLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 13 },
   balanceValue: { color: colors.text, fontSize: 36, fontFamily: fonts.display, marginTop: 6 },
-  address: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontFamily: fonts.mono, marginTop: 14 },
-  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  address: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontFamily: fonts.mono, marginTop: 14 },
+  fundHint: { color: colors.textDim, fontSize: 13, marginTop: 12, lineHeight: 18 },
   action: {
-    flex: 1,
+    marginTop: 16,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
     paddingVertical: 16,
-    alignItems: 'center',
-    gap: 8,
-  },
-  actionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 10,
   },
-  actionLabel: { color: colors.textMuted, fontSize: 13 },
+  actionLabel: { color: colors.textMuted, fontSize: 14 },
   err: { color: colors.enemy, fontSize: 12, marginTop: 10 },
   ok: { color: colors.territory, fontSize: 12, marginTop: 10 },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
