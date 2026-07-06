@@ -18,8 +18,9 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { explorerTxUrl, logRunOnChain, UnfundedError } from '../../features/chain/claim'
 import { darkMapStyle } from '../../features/capture/map-style'
-import { tilePolygon } from '../../features/capture/tiles'
+import { tileKey, tilePolygon, tilesAround } from '../../features/capture/tiles'
 import { useGame } from '../../features/game/game-store'
+import { rivalForTile } from '../../features/game/rivals'
 import { formatDuration, formatPace, RunSummary, tileAreaKm2, useRunSession } from '../../features/run/use-run-session'
 import { colors, fonts, radius } from '../../theme'
 
@@ -68,7 +69,8 @@ export default function RunScreen() {
   const [toast, setToast] = useState<Toast>(null)
   const centered = useRef(false)
 
-  const run = useRunSession({ onCapture: (key) => game.addCapture(key, 1) })
+  // Stealing a rival tile is worth double.
+  const run = useRunSession({ onCapture: (key) => game.addCapture(key, rivalForTile(key) ? 2 : 1) })
 
   // Auto-dismiss toasts.
   useEffect(() => {
@@ -157,6 +159,17 @@ export default function RunScreen() {
   const ownedTiles = useMemo(() => [...game.tiles], [game.tiles])
   const glow = game.color + '26'
 
+  // Contested rival tiles near the player (recomputed only when you cross a tile).
+  const centerKey = fix ? tileKey(fix.lat, fix.lng) : null
+  const contested = useMemo(() => {
+    if (!fix) return [] as { key: string; color: string }[]
+    return tilesAround(fix.lat, fix.lng, 4)
+      .map((key) => ({ key, clan: rivalForTile(key) }))
+      .filter((t) => t.clan && !game.hasTile(t.key))
+      .map((t) => ({ key: t.key, color: t.clan!.color }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centerKey, game.tiles])
+
   return (
     <View style={styles.container}>
       <MapView
@@ -170,6 +183,15 @@ export default function RunScreen() {
         toolbarEnabled={false}
         initialRegion={{ latitude: 17.4239, longitude: 78.4738, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
       >
+        {contested.map((t) => (
+          <Polygon
+            key={`r${t.key}`}
+            coordinates={tilePolygon(t.key)}
+            strokeColor={t.color + '99'}
+            strokeWidth={1}
+            fillColor={t.color + '22'}
+          />
+        ))}
         {ownedTiles.map((key) => (
           <Polygon
             key={key}
