@@ -6,7 +6,7 @@ import { ReactNode } from 'react'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
 const cluster = createSolanaDevnet()
-const identity: AppIdentity = { name: 'Kit Expo Privy', uri: 'kit-expo-privy://kit-expo-privy' }
+const identity: AppIdentity = { name: 'Zorr', uri: 'zorr://zorr' }
 const privyAppId = process.env.EXPO_PUBLIC_PRIVY_APP_ID
 const privyClientId = process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID
 const queryClient = new QueryClient()
