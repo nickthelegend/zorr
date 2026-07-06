@@ -1,76 +1,59 @@
-# zorr
+# Zorr — Walk & Capture the Land
 
-This is an [Expo](https://expo.dev) project pre-configured with [Uniwind](https://uniwind.dev/) for styling and Solana libraries.
+**A real-time GPS territory game on Solana. Conquer your city on foot — and every run is a real on-chain transaction.**
 
-## Technologies
+Built for **Solana Blitz v6 (MagicBlock)**, Mobile theme.
 
-- [Expo](https://expo.dev)
-- [Uniwind](https://uniwind.dev/) (Tailwind CSS for React Native)
-- [@solana/kit](https://github.com/solana-labs/solana-web3.js)
-- [@wallet-ui/react-native-kit](https://github.com/wallet-ui/wallet-ui)
+Zorr is an INTVL-style running game: you **Start a Run**, and the ground you physically cover becomes your territory (measured in km²). Rival clans hold part of the map — run through their tiles to steal them. An AI/heuristic anti-cheat blocks GPS spoofing and vehicles, so only real movement counts. End a run and **log it on-chain to Solana** — your territory is backed by a verifiable transaction.
 
-## Set up Privy
+## The loop
 
-1. Log in or sign up at the [Privy dashboard](https://dashboard.privy.io).
-2. On the [organization overview](https://dashboard.privy.io/organization-overview), click `New app`.
-3. Enter your app name, select `Mobile app`, and click `Create app`.
-4. Save the `App ID`, then click `Close`.
-5. Under `User management` in the sidebar, go to `Authentication`.
-6. In the `External wallets` card, enable `SVM (Solana) wallets`.
-7. Go to `App settings` > `Clients`.
-8. Set the app identifier to the `expo.android.package` value from `app.json`.
-9. Save the `Client ID` for the default mobile app client.
-10. Copy `.env.example` to `.env` and set:
+1. **Start a Run** → your GPS path auto-captures tiles as you move.
+2. **Steal rival ground** → running through a rival tile flips it to your color (2× XP).
+3. **Live stats** → km² captured, distance, duration, pace — with a pulsing recorder.
+4. **End Run → summary** → area + XP, rate how it felt.
+5. **Log run on-chain** → a real, confirmed Solana devnet transaction.
+6. **Climb the weekly leaderboard** by km² held.
 
-```bash
-EXPO_PUBLIC_PRIVY_APP_ID=your-privy-app-id
-EXPO_PUBLIC_PRIVY_CLIENT_ID=your-privy-client-id
-```
+## Why on-chain (the MagicBlock story)
 
-Do not put the Privy app secret in `.env`; this Expo app only uses public client-side Privy identifiers.
+Territory games like INTVL keep your progress on their servers. In Zorr, **every run is a real, verifiable Solana transaction** signed by an embedded/game wallet — no popups per action. Roadmap: move per-tile claims onto a **MagicBlock Ephemeral Rollup** (delegated PDA) for gasless, instant, real-time claims during a run.
 
-## Get started
+## Features
 
-1. Install dependencies
+- Real device **GPS** + live **Google Maps** (dark, neon-glow territory)
+- **Anti-cheat**: speed/activity gating (Idle/Walking/Running/Vehicle)
+- **Run sessions** with distance/duration/pace + km² territory
+- **Rival clans** — contested tiles you steal by running
+- **Weekly leaderboard** (your rank is live from your captured km²)
+- **XP, levels, combos, achievements, player identity** (name + color)
+- **Real on-chain run logging** (Solana devnet, verified)
+- Embedded wallet via **Privy** (email) or **guest** mode; funded game wallet for signing
+- Rich UI throughout: animated aurora login, gradient-border cards, Audiowide + mono type
 
-   ```bash
-   npm install
-   ```
+## Tech stack
 
-2. Start the app
+- **Expo 55 / React Native 0.83** (expo-router)
+- **@solana/kit** for transactions/signing, **react-native-maps** (Google), **expo-location**
+- **Privy** embedded Solana wallet + guest mode
+- **react-native-reanimated** for motion; dark "neon cartography" design system
 
-This steps builds the dependencies for the development client.
-
-```bash
-npm run android
-```
-
-In the output, you'll find options to open the app in an Android development build:
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-
-This template requires native modules and Mobile Wallet Adapter support, so it does not support Expo Go or iOS simulator.
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Test wallet connections
-
-Follow the [Solana Mobile development setup](https://docs.solanamobile.com/get-started/development-setup) to configure a Seeker or Android emulator for testing Mobile Wallet Adapter flows. For emulator development, install the [Mock MWA Wallet](https://github.com/solana-mobile/mock-mwa-wallet.git) and open it once before connecting from this app.
-
-If wallet connection fails with `java.util.concurrent.CancellationException` or `-1/authorization request declined`, make sure the emulator has a PIN or password set, then restart the mock wallet:
+## Run it
 
 ```bash
-adb shell locksettings set-pin 1234
-adb shell am force-stop com.solana.mwallet
+npm install
+cp .env.example .env          # fill in Google Maps key + game wallet secret (see .env.example)
+npm run android               # native dev build on an Android device/emulator
 ```
 
-Open the mock wallet again so it can create and persist its seed, then try connecting from this app.
+Notes:
+- Needs an Android device/emulator (Mobile Wallet Adapter + native modules; no Expo Go / iOS sim).
+- Fund the game wallet address (shown in the Wallet tab) with devnet SOL to make claims land.
+- Guest mode works with no Privy setup; email login needs `com.zorr.app` allow-listed in the Privy dashboard.
 
-## Learn more
+## Status (honest)
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Uniwind documentation](https://uniwind.dev/): Learn how to style your app with Tailwind CSS.
-- [Solana documentation](https://solana.com/docs): Learn how to build on Solana.
+Done and verified on-device: onboarding/login, GPS + maps + anti-cheat, run sessions, rivals,
+leaderboard, wallet/profile/settings, and **real on-chain run logging** (a confirmed devnet tx).
+Next architectural step: the delegated **MagicBlock Ephemeral Rollup** program for gasless/instant
+per-tile claims (Stage 2), plus optional PvP/Bluetooth battles.
