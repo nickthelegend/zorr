@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { ReactNode } from 'react'
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native'
 
-import { colors, radius } from '../theme'
+import { radius } from '../theme'
 
 /** Glass card wrapped in a soft violet→emerald gradient hairline border. */
 export function GradientBorderCard({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {

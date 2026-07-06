@@ -40,6 +40,10 @@ export default function BattleScreen() {
     }
   })
 
+  // Always point at the latest transport without making effects depend on it.
+  const nearbyRef = useRef(nearby)
+  nearbyRef.current = nearby
+
   // Start the moment a peer connects.
   useEffect(() => {
     if (nearby.connected && mode === 'lobby') {
@@ -81,7 +85,7 @@ export default function BattleScreen() {
       if (left <= 0) {
         clearInterval(timer)
         botTick && clearInterval(botTick)
-        if (isPeer) nearby.send(`R:${myScoreRef.current}`)
+        if (isPeer) nearbyRef.current.send(`R:${myScoreRef.current}`)
         setMode('result')
       }
     }, 100)
