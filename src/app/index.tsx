@@ -1,11 +1,27 @@
-import { StatusBar } from 'expo-status-bar'
-import { WalletFeatureEntry } from '../features/wallet/wallet-feature-entry'
+import { router } from 'expo-router'
+import * as SecureStore from 'expo-secure-store'
+import { useEffect } from 'react'
+import { ActivityIndicator, View } from 'react-native'
 
-export default function App() {
+import { colors } from '../theme'
+
+export default function Index() {
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      const done = await SecureStore.getItemAsync('onboardingCompleted')
+      if (mounted) {
+        router.replace(done ? '/home' : '/onboarding')
+      }
+    })()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
   return (
-    <>
-      <WalletFeatureEntry />
-      <StatusBar style="auto" />
-    </>
+    <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+      <ActivityIndicator color={colors.primary} size="large" />
+    </View>
   )
 }
