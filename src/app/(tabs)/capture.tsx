@@ -17,6 +17,7 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { explorerTxUrl, logRunOnChain, UnfundedError } from '../../features/chain/claim'
+import { captureTileOnER, ZORR_PROGRAM } from '../../features/chain/er'
 import { darkMapStyle } from '../../features/capture/map-style'
 import { territoryOutline, tileKey, tilePolygon, tilesAround } from '../../features/capture/tiles'
 import { useGame } from '../../features/game/game-store'
@@ -142,15 +143,29 @@ export default function RunScreen() {
 
   const logRun = useCallback(async (s: RunSummary) => {
     setLogging(true)
+    const last = s.tiles[s.tiles.length - 1]
+    const [ty, tx] = last ? last.split('_').map(Number) : [0, 0]
     try {
-      const sig = await logRunOnChain(s.distanceKm, s.areaKm2, s.tiles.length)
-      setToast({ kind: 'ok', msg: 'Run logged on-chain', url: explorerTxUrl(sig) })
-      setSummary(null)
-    } catch (e) {
+      // Headline: capture on the MagicBlock Ephemeral Rollup (gasless, instant).
+      const { ms } = await captureTileOnER(tx, ty)
       setToast({
-        kind: 'err',
-        msg: e instanceof UnfundedError ? 'Fund your Zorr wallet with devnet SOL.' : 'Log failed — try again.',
+        kind: 'ok',
+        msg: `Captured on MagicBlock ER ⚡ ${ms}ms`,
+        url: `https://explorer.solana.com/address/${ZORR_PROGRAM}?cluster=devnet`,
       })
+      setSummary(null)
+    } catch {
+      // Fall back to a base-layer run log if the ER path is unavailable.
+      try {
+        const sig = await logRunOnChain(s.distanceKm, s.areaKm2, s.tiles.length)
+        setToast({ kind: 'ok', msg: 'Run logged on-chain', url: explorerTxUrl(sig) })
+        setSummary(null)
+      } catch (e) {
+        setToast({
+          kind: 'err',
+          msg: e instanceof UnfundedError ? 'Fund your Zorr wallet with devnet SOL.' : 'Log failed — try again.',
+        })
+      }
     } finally {
       setLogging(false)
     }
@@ -357,7 +372,7 @@ function RunSummaryCard({
 
       <TouchableOpacity activeOpacity={0.9} onPress={() => onLog(summary)} disabled={logging}>
         <LinearGradient colors={['#7C3AED', '#4C1D95']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.bigBtn}>
-          <Text style={styles.bigBtnText}>{logging ? 'Logging on-chain…' : 'Log run on-chain'}</Text>
+          <Text style={styles.bigBtnText}>{logging ? 'Claiming on ER…' : 'Claim on MagicBlock ER ⚡'}</Text>
         </LinearGradient>
       </TouchableOpacity>
       <TouchableOpacity onPress={onDiscard} disabled={logging}>
