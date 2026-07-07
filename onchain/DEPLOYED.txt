@@ -7,3 +7,10 @@ Verified ER flow (devnet):
   captureTile ON ER: 32wRmkt5KvSETvNv... (1360ms), 3PRXYNWPvsn... (154ms, gasless)
   commit ER -> base: VagPBz4UNVG18t1U...
   ER endpoint: https://devnet-as.magicblock.app
+
+VRF upgrade (ephemeral-rollups-sdk 0.15.5, "vrf" feature):
+  upgrade tx: 2a5EXw2EVGN8TgdeRrwYzsQWnuGYupQ7kgCJK1CxZRRFW75m8jTu22G7L7GekuS5u1idV3VmfgcpjW99B65Kds7W
+  instructions: request_seed (#[vrf]) + callback_seed (#[vrf_callback]); account VrfSeed { seed[32], counter, fulfilled }
+  base-layer oracle queue (DEFAULT_QUEUE): Cuj97ggrhhidhbu39TijNVqE74xvKJ69gDervRUXAxGh
+  Verified live (tests/zorr-vrf.ts): oracle fulfilled callback in ~701ms with real 32-byte randomness.
+  Use: provably-fair Guardian summon seeds + trustless battle seeds.

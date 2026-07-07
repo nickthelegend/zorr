@@ -8,6 +8,52 @@
   },
   "instructions": [
     {
+      "name": "callback_seed",
+      "docs": [
+        "VRF oracle callback — writes the verifiable randomness into the seed PDA.",
+        "Only the VRF program identity can invoke this (enforced by `#[vrf_callback]`)."
+      ],
+      "discriminator": [
+        179,
+        172,
+        236,
+        94,
+        46,
+        130,
+        64,
+        92
+      ],
+      "accounts": [
+        {
+          "name": "vrf_program_identity",
+          "docs": [
+            "Scoped VRF identity PDA, bound to this program. Its presence as a signer proves",
+            "the callback was issued by the VRF program for this program."
+          ],
+          "signer": true
+        },
+        {
+          "name": "vrf_seed",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "randomness",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "client_seed",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "capture_and_commit",
       "docs": [
         "Capture a tile on the ER, then commit to the base layer."
@@ -434,6 +480,106 @@
       ]
     },
     {
+      "name": "request_seed",
+      "docs": [
+        "Request MagicBlock VRF (verifiable randomness) into a scoped seed PDA.",
+        "The 32-byte result seeds provably-fair Guardian summons and trustless",
+        "battle RNG — the app derives the creature/match seed from it."
+      ],
+      "discriminator": [
+        162,
+        96,
+        174,
+        50,
+        178,
+        77,
+        115,
+        152
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "vrf_seed",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  114,
+                  102,
+                  115,
+                  101,
+                  101,
+                  100
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "scope"
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_queue",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "program_identity",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  100,
+                  101,
+                  110,
+                  116,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "vrf_program",
+          "address": "Vrf1RNUjXmQGjmQrQLvJHs9SNkvDJEsRVFPkfSQUwGz"
+        },
+        {
+          "name": "slot_hashes",
+          "address": "SysvarS1otHashes111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "scope",
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
+        },
+        {
+          "name": "client_seed",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "undelegate",
       "docs": [
         "Undelegate the territory account from the delegation program."
@@ -502,6 +648,19 @@
         96,
         120
       ]
+    },
+    {
+      "name": "VrfSeed",
+      "discriminator": [
+        137,
+        156,
+        245,
+        171,
+        181,
+        209,
+        145,
+        47
+      ]
     }
   ],
   "types": [
@@ -521,6 +680,40 @@
           {
             "name": "last_y",
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VrfSeed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "seed",
+            "docs": [
+              "32 bytes of verifiable randomness from the MagicBlock VRF oracle."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "counter",
+            "docs": [
+              "Increments each fulfillment (lets clients detect a fresh result)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "fulfilled",
+            "docs": [
+              "True once the oracle has written a result for the latest request."
+            ],
+            "type": "bool"
           }
         ]
       }
