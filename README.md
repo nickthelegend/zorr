@@ -28,9 +28,19 @@ Per-tile claims run on a **MagicBlock Ephemeral Rollup**: a delegated `territory
 - **Flow:** `initialize` → `delegate` PDA to the ER → `capture_tile` **on the ER** (gasless) → `commit` state back to devnet base layer.
 - **Proven:** the full delegate → gasless capture → commit path passes live on devnet via `onchain/tests/zorr-er.ts` (~154 ms capture), and standalone via `@solana/kit` (~51 ms). In the app, `src/features/chain/er.ts#captureTileOnER` builds the same instruction and posts it to the ER, with a devnet memo tx as fallback.
 
+### MagicBlock VRF — implemented ✅
+
+Verifiable randomness from the MagicBlock VRF oracle, on the **same program**. Two `#[vrf]` instructions (`ephemeral-rollups-sdk 0.15.5`, `vrf` feature) request randomness and receive it via an oracle callback:
+
+- **Flow:** `request_seed(scope)` CPIs the base-layer VRF oracle queue (`Cuj97ggr…`) → the oracle calls back `callback_seed(randomness)` (guarded so only the VRF program identity can fulfill) → 32 verifiable bytes land in a scoped `VrfSeed` PDA.
+- **Proven live:** `onchain/tests/zorr-vrf.ts` (`npm run test:vrf`) — request → oracle callback fulfilled in **~700 ms** → PDA holds real non-zero randomness.
+- **Two uses in the app** (`src/features/chain/vrf.ts`, built in `@solana/kit`):
+  - **Provably-fair summon** — a Guardian's element/rarity/stats derive from a VRF seed, so nobody can grind for Legendaries.
+  - **Trustless battle seed** — a peer duel's RNG is seeded by VRF (host-authoritative + on-chain verifiable), replacing the players' nonces. Falls back to the deterministic seed if VRF is unreachable, so play never blocks.
+
 ## Guardian duels (NFT monsters) ⚔️
 
-Your captures earn **Guardians** — NFT monsters you battle with, ported from AlgoQuest's beast system (six elements, a type-effectiveness chart, stats, four abilities + Energy Focus, burn/poison). Summon them on the Guardians screen (registered on-chain) and duel three ways:
+Your captures earn **Guardians** — NFT monsters you battle with, ported from AlgoQuest's beast system (six elements, a type-effectiveness chart, stats, four abilities + Energy Focus, burn/poison). Summon them on the Guardians screen (traits **sealed by MagicBlock VRF** — provably fair) and duel three ways:
 
 - **Quick Duel** vs a deterministic AI, **Bluetooth** vs a nearby player (Google Nearby), or **Online** over a room code.
 - **Turn-based:** pick a move, type advantage + stats + crits decide it; 30-second turns; winner takes the XP.
@@ -76,25 +86,26 @@ Notes:
 ## Tests
 
 ```bash
-npm test                   # 40 unit tests (jest-expo) — tiles, rivals, leaderboard,
-                           # run helpers, level curve, on-chain encoding, the element
-                           # chart + seed→beast generation, and the monster-duel engine
-                           # (damage math, protocol, host election) with a two-device
-                           # loopback proving both phones stay in sync + agree on the winner
+npm test                   # 49 unit tests (jest-expo) — tiles, rivals, leaderboard,
+                           # run helpers, level curve, on-chain encoding, VRF seed
+                           # helpers, the element chart + seed→beast generation, and the
+                           # monster-duel engine (damage math, protocol, host election)
+                           # with a two-device loopback proving both phones stay in sync
 npm run test:integration   # live devnet: program deployed + executable, territory PDA
                            # exists, capture_tile encoding matches the IDL
 npm run test:socket        # spawns the real relay; checks room-scoped ordered delivery
-                           # + isolation for the online duel path
 ```
 
-Deep write-path integration (delegate → gasless ER capture → commit) lives in `onchain/tests/zorr-er.ts`.
+On-chain (in `onchain/`): `npm run test:vrf` drives the live VRF request → oracle callback on
+devnet; the ER write path (delegate → gasless capture → commit) lives in `tests/zorr-er.ts`.
 
 ## Status (honest)
 
 Done and verified: onboarding/login (**Privy** email OTP + embedded Solana wallet, or guest),
 GPS + maps + anti-cheat, run sessions, rivals, leaderboard, wallet/profile/settings,
-**real on-chain run logging** (confirmed devnet tx), and the **MagicBlock Ephemeral Rollup** program
-(deployed, delegated, gasless capture + commit — proven live).
+**real on-chain run logging** (confirmed devnet tx), and **two MagicBlock products** on one deployed
+program — **Ephemeral Rollups** (delegated, gasless capture + commit) and **VRF** (verifiable
+randomness for provably-fair summons + trustless battle seeds) — both proven live on devnet.
 
 The **Guardian duel** is complete: NFT-monster battles vs a deterministic AI, over **Bluetooth**
 (Google Nearby), and **online** over a room code via the relay. The engine is a deterministic,
@@ -106,4 +117,4 @@ software can't self-check: the Bluetooth radio pairing between two physical phon
 public relay host for online play (run `npm run relay` and set `EXPO_PUBLIC_RELAY_URL`) — both are
 deployment/QA steps, not code gaps.
 
-`tsc` 0 errors · eslint 0 warnings · 40/40 unit tests · devnet + socket integration green · full Metro bundle.
+`tsc` 0 errors · eslint 0 warnings · 49/49 unit tests · devnet + VRF + socket integration green · full Metro bundle.
