@@ -13,13 +13,18 @@
     "lint": "expo lint --fix",
     "lint:check": "expo lint",
     "start": "expo start",
+    "relay": "node server/relay.mjs",
     "test": "jest",
     "test:integration": "node scripts/integration.mjs",
+    "test:socket": "node scripts/socket-integration.mjs",
     "web": "expo start --web"
   },
   "jest": {
     "preset": "jest-expo",
-    "testMatch": ["**/__tests__/**/*.test.ts", "**/__tests__/**/*.test.tsx"],
+    "testMatch": [
+      "**/__tests__/**/*.test.ts",
+      "**/__tests__/**/*.test.tsx"
+    ],
     "transformIgnorePatterns": [
       "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|react-native-reanimated|expo-modules-core)/)"
     ]
@@ -122,7 +127,8 @@
     "eslint": "^9.25.0",
     "eslint-config-expo": "~55.0.0",
     "prettier": "^3.8.1",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "ws": "^8.21.0"
   },
   "private": true
 }
