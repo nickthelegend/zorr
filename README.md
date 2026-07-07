@@ -28,12 +28,25 @@ Per-tile claims run on a **MagicBlock Ephemeral Rollup**: a delegated `territory
 - **Flow:** `initialize` → `delegate` PDA to the ER → `capture_tile` **on the ER** (gasless) → `commit` state back to devnet base layer.
 - **Proven:** the full delegate → gasless capture → commit path passes live on devnet via `onchain/tests/zorr-er.ts` (~154 ms capture), and standalone via `@solana/kit` (~51 ms). In the app, `src/features/chain/er.ts#captureTileOnER` builds the same instruction and posts it to the ER, with a devnet memo tx as fallback.
 
+## Guardian duels (NFT monsters) ⚔️
+
+Your captures earn **Guardians** — NFT monsters you battle with, ported from AlgoQuest's beast system (six elements, a type-effectiveness chart, stats, four abilities + Energy Focus, burn/poison). Summon them on the Guardians screen (registered on-chain) and duel three ways:
+
+- **Quick Duel** vs a deterministic AI, **Bluetooth** vs a nearby player (Google Nearby), or **Online** over a room code.
+- **Turn-based:** pick a move, type advantage + stats + crits decide it; 30-second turns; winner takes the XP.
+
+The hard part of a serverless PvP game is that both phones must agree on the outcome. Zorr solves it by making the battle a **deterministic reducer driven by a shared seed** — no `Math.random()` in a fight, and the only thing on the wire is *which ability index* was chosen (never damage numbers). A Guardian is fully defined by its seed, so it travels as a tiny `B:<seed>` message and the peer reconstructs it exactly.
+
+- **Engine/model/transports:** `src/features/beasts/*` (element chart, seed→beast), `src/features/battle/monster-duel.ts` (AlgoQuest's damage math, deterministic), `protocol.ts`, `use-nearby.ts` (Bluetooth), `use-socket.ts` (online). Relay: `server/relay.mjs` (`npm run relay`).
+- **Proven without hardware:** a two-device **loopback** test runs two engine instances through the wire protocol and asserts they stay byte-for-byte in sync and agree on the winner; a live **socket** test spawns the real relay and checks room-scoped ordered delivery + isolation (`npm run test:socket`).
+
 ## Features
 
 - Real device **GPS** + live **Google Maps** (dark, neon-glow territory)
 - **Anti-cheat**: speed/activity gating (Idle/Walking/Running/Vehicle)
 - **Run sessions** with distance/duration/pace + km² territory
 - **Rival clans** — contested tiles you steal by running
+- **Guardian duels** — NFT-monster battles vs AI, Bluetooth, or online (room code)
 - **Weekly leaderboard** (your rank is live from your captured km²)
 - **XP, levels, combos, achievements, player identity** (name + color)
 - **Real on-chain run logging** (Solana devnet, verified)
@@ -63,12 +76,15 @@ Notes:
 ## Tests
 
 ```bash
-npm test               # 36 unit tests (jest-expo) — tiles, rivals, leaderboard,
-                       # run helpers, level curve, on-chain encoding, and the
-                       # PvP duel engine (protocol, host election, outcome,
-                       # + a two-peer loopback that proves both phones agree)
-npm run test:integration   # live devnet: program is deployed + executable,
-                           # territory PDA exists, capture_tile encoding matches IDL
+npm test                   # 40 unit tests (jest-expo) — tiles, rivals, leaderboard,
+                           # run helpers, level curve, on-chain encoding, the element
+                           # chart + seed→beast generation, and the monster-duel engine
+                           # (damage math, protocol, host election) with a two-device
+                           # loopback proving both phones stay in sync + agree on the winner
+npm run test:integration   # live devnet: program deployed + executable, territory PDA
+                           # exists, capture_tile encoding matches the IDL
+npm run test:socket        # spawns the real relay; checks room-scoped ordered delivery
+                           # + isolation for the online duel path
 ```
 
 Deep write-path integration (delegate → gasless ER capture → commit) lives in `onchain/tests/zorr-er.ts`.
@@ -80,10 +96,14 @@ GPS + maps + anti-cheat, run sessions, rivals, leaderboard, wallet/profile/setti
 **real on-chain run logging** (confirmed devnet tx), and the **MagicBlock Ephemeral Rollup** program
 (deployed, delegated, gasless capture + commit — proven live).
 
-The **PvP tap-duel** is complete: single-player vs a deterministic bot, plus a Bluetooth/Wi-Fi
-peer duel over Google Nearby Connections — synchronized start (nonce host election + shared GO
-signal), live score sync, disconnect-forfeit, and rematch. Its fairness logic (protocol, election,
-winner reconciliation) is proven by a two-peer loopback test, so both devices always agree on the
-winner; runtime Bluetooth/location permissions are declared and requested. The one thing software
-can't self-check is the radio pairing between two physical phones — that's a device QA step, not a
-code gap. `tsc` 0 errors · eslint 0 warnings · 36/36 unit tests · integration green · full Metro bundle.
+The **Guardian duel** is complete: NFT-monster battles vs a deterministic AI, over **Bluetooth**
+(Google Nearby), and **online** over a room code via the relay. The engine is a deterministic,
+seed-driven reducer (AlgoQuest's damage math ported faithfully), so two phones compute identical
+results and only the chosen ability index crosses the wire. Fairness is proven by a two-device
+loopback test (byte-for-byte sync + winner agreement) and the transport by a live socket test that
+spawns the real relay; runtime Bluetooth/location permissions are declared and requested. Two things
+software can't self-check: the Bluetooth radio pairing between two physical phones, and a
+public relay host for online play (run `npm run relay` and set `EXPO_PUBLIC_RELAY_URL`) — both are
+deployment/QA steps, not code gaps.
+
+`tsc` 0 errors · eslint 0 warnings · 40/40 unit tests · devnet + socket integration green · full Metro bundle.
