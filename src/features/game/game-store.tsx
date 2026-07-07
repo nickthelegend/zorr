@@ -10,7 +10,23 @@ const XP_PER_TILE = 50
 
 export const EXPLORER_COLORS = ['#7C3AED', '#22D3A6', '#F43F5E', '#FBBF24', '#3B82F6', '#EC4899'] as const
 
-type Persisted = { tiles: string[]; xp: number; bestStreak: number; name?: string; color?: string }
+// Two starter Guardians so a new player always has a roster to duel with.
+const STARTER_SEEDS = ['zorr-starter-ember', 'zorr-starter-tide']
+
+/** A fresh, wire-safe Guardian seed (alphanumeric — no colon/space). */
+function newSeed(): string {
+  return `z${Date.now().toString(36)}${Math.floor(Math.random() * 46656).toString(36)}`
+}
+
+type Persisted = {
+  tiles: string[]
+  xp: number
+  bestStreak: number
+  name?: string
+  color?: string
+  beasts?: string[]
+  activeBeast?: string
+}
 
 type GameState = {
   ready: boolean
@@ -20,10 +36,14 @@ type GameState = {
   bestStreak: number
   name: string
   color: string
+  beasts: string[]
+  activeBeast: string
   hasTile: (key: string) => boolean
   addCapture: (key: string, combo: number) => number
   award: (xp: number) => void
   setIdentity: (name: string, color: string) => void
+  mintBeast: () => string
+  setActiveBeast: (seed: string) => void
   reset: () => void
 }
 
@@ -36,6 +56,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [bestStreak, setBestStreak] = useState(0)
   const [name, setName] = useState('Explorer')
   const [color, setColor] = useState<string>(EXPLORER_COLORS[0])
+  const [beasts, setBeasts] = useState<string[]>(STARTER_SEEDS)
+  const [activeBeast, setActive] = useState<string>(STARTER_SEEDS[0])
 
   useEffect(() => {
     ;(async () => {
@@ -48,6 +70,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setBestStreak(p.bestStreak ?? 0)
           if (p.name) setName(p.name)
           if (p.color) setColor(p.color)
+          const roster = p.beasts?.length ? p.beasts : STARTER_SEEDS
+          setBeasts(roster)
+          setActive(p.activeBeast && roster.includes(p.activeBeast) ? p.activeBeast : roster[0])
         }
       } catch {
         // ignore
@@ -60,9 +85,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Auto-persist any change once loaded.
   useEffect(() => {
     if (!ready) return
-    const data: Persisted = { tiles: [...tiles], xp, bestStreak, name, color }
+    const data: Persisted = { tiles: [...tiles], xp, bestStreak, name, color, beasts, activeBeast }
     SecureStore.setItemAsync(KEY, JSON.stringify(data)).catch(() => {})
-  }, [ready, tiles, xp, bestStreak, name, color])
+  }, [ready, tiles, xp, bestStreak, name, color, beasts, activeBeast])
 
   const comboRef = useRef(0)
 
@@ -88,6 +113,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       bestStreak,
       name,
       color,
+      beasts,
+      activeBeast,
       hasTile: (key) => tiles.has(key),
       addCapture,
       award: (amount) => setXp((x) => x + Math.max(0, amount)),
@@ -95,13 +122,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setName(n.trim() || 'Explorer')
         setColor(c)
       },
+      mintBeast: () => {
+        const seed = newSeed()
+        setBeasts((prev) => [...prev, seed])
+        setActive(seed)
+        return seed
+      },
+      setActiveBeast: (seed) => setActive(seed),
       reset: () => {
         setTiles(new Set())
         setXp(0)
         setBestStreak(0)
+        setBeasts(STARTER_SEEDS)
+        setActive(STARTER_SEEDS[0])
       },
     }
-  }, [ready, tiles, xp, bestStreak, name, color, addCapture])
+  }, [ready, tiles, xp, bestStreak, name, color, beasts, activeBeast, addCapture])
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>
 }

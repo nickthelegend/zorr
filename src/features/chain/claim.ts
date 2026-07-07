@@ -94,3 +94,8 @@ export function claimTileOnChain(tileKey: string, lat: number, lng: number) {
 export function logRunOnChain(distanceKm: number, areaKm2: number, tileCount: number) {
   return sendMemoTx(`ZORR|run|${distanceKm.toFixed(2)}km|${areaKm2.toFixed(4)}km2|${tileCount}tiles`)
 }
+
+/** Register a newly minted Guardian on-chain (its seed is its identity). */
+export function mintGuardianOnChain(seed: string, name: string) {
+  return sendMemoTx(`ZORR|guardian|${seed}|${name}`)
+}
