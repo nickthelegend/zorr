@@ -43,6 +43,7 @@ type GameState = {
   award: (xp: number) => void
   setIdentity: (name: string, color: string) => void
   mintBeast: () => string
+  addBeast: (seed: string) => void
   setActiveBeast: (seed: string) => void
   reset: () => void
 }
@@ -127,6 +128,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setBeasts((prev) => [...prev, seed])
         setActive(seed)
         return seed
+      },
+      addBeast: (seed) => {
+        setBeasts((prev) => (prev.includes(seed) ? prev : [...prev, seed]))
+        setActive(seed)
       },
       setActiveBeast: (seed) => setActive(seed),
       reset: () => {

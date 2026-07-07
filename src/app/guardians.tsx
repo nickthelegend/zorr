@@ -7,27 +7,30 @@ import Animated, { FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { BeastCard } from '../components/beast-card'
-import { generateBeast } from '../features/beasts/beast'
-import { explorerTxUrl, mintGuardianOnChain, UnfundedError } from '../features/chain/claim'
+import { explorerTxUrl } from '../features/chain/claim'
+import { requestVrfSeed } from '../features/chain/vrf'
+import { hexSeed, randomScope } from '../features/chain/vrf-seed'
 import { useGame } from '../features/game/game-store'
 import { colors, fonts, radius } from '../theme'
 
-type MintState = { status: 'idle' | 'minting' | 'done' | 'local'; sig?: string }
+type MintState = { status: 'idle' | 'minting' | 'vrf' | 'local'; sig?: string }
 
 export default function GuardiansScreen() {
   const game = useGame()
   const [mint, setMint] = useState<MintState>({ status: 'idle' })
 
+  // Summon a Guardian whose traits are sealed by MagicBlock VRF — the 32 bytes
+  // of on-chain verifiable randomness become the creature's seed, so rarity
+  // can't be grinded. Falls back to a local summon if VRF is unreachable.
   const summon = async () => {
     setMint({ status: 'minting' })
-    const seed = game.mintBeast()
-    const beast = generateBeast(seed)
     try {
-      const sig = await mintGuardianOnChain(seed, beast.name)
-      setMint({ status: 'done', sig })
-    } catch (e) {
-      // Minted locally regardless; on-chain registration just needs a funded wallet.
-      setMint({ status: e instanceof UnfundedError ? 'local' : 'local' })
+      const { seed: randomness, signature } = await requestVrfSeed(randomScope())
+      game.addBeast(hexSeed(randomness))
+      setMint({ status: 'vrf', sig: signature })
+    } catch {
+      game.mintBeast()
+      setMint({ status: 'local' })
     }
   }
 
@@ -43,8 +46,8 @@ export default function GuardiansScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.sub}>
-          Your Guardians are NFT monsters — each one’s stats, element and abilities are sealed by its seed. Send one into
-          a duel over Bluetooth or online.
+          Your Guardians are NFT monsters — stats, element and abilities sealed by MagicBlock VRF, so rarity is provably
+          fair. Send one into a duel over Bluetooth or online.
         </Text>
 
         {/* Summon */}
@@ -63,13 +66,15 @@ export default function GuardiansScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        {mint.status === 'done' && mint.sig ? (
+        {mint.status === 'minting' ? (
+          <Text style={styles.localNote}>Rolling verifiable randomness — MagicBlock VRF…</Text>
+        ) : mint.status === 'vrf' && mint.sig ? (
           <TouchableOpacity style={styles.txRow} onPress={() => Linking.openURL(explorerTxUrl(mint.sig!))}>
             <Link2 color={colors.territory} size={14} />
-            <Text style={styles.txText}>Registered on-chain — view transaction</Text>
+            <Text style={styles.txText}>Sealed by MagicBlock VRF — view transaction</Text>
           </TouchableOpacity>
         ) : mint.status === 'local' ? (
-          <Text style={styles.localNote}>Summoned. Fund the Zorr wallet with devnet SOL to register it on-chain.</Text>
+          <Text style={styles.localNote}>Summoned locally. Fund the Zorr wallet with devnet SOL for a VRF-sealed summon.</Text>
         ) : null}
 
         {/* Roster */}
