@@ -40,7 +40,13 @@ export default function BattleArena() {
   const myLevel = 1
 
   const [phase, setPhase] = useState<Phase>(mode === 'bot' ? 'battle' : 'connecting')
-  const [state, setState] = useState<BattleState | null>(null)
+  // Bot battles start immediately (no flash of the connecting screen); PvP waits
+  // for the handshake to build the state.
+  const [state, setState] = useState<BattleState | null>(() => {
+    if (mode !== 'bot') return null
+    const botSeed = `bot-${Math.floor(Math.random() * 100000)}`
+    return initBattle(generateBeast(mySeed, myLevel), generateBeast(botSeed), botSeed)
+  })
   const [status, setStatus] = useState('Getting ready…')
   const [left, setLeft] = useState(false) // opponent forfeited
   const [clock, setClock] = useState(TURN_SECONDS)
@@ -133,14 +139,9 @@ export default function BattleArena() {
     send: (m) => (modeRef.current === 'bt' ? nearby.send(m) : modeRef.current === 'online' ? socket.send(m) : undefined),
   }
 
-  // Kick off the chosen mode.
+  // Kick off the chosen mode. Bot state is already built in useState above.
   useEffect(() => {
-    if (mode === 'bot') {
-      const botSeed = `bot-${Math.floor(Math.random() * 100000)}`
-      mySideRef.current = 'p1'
-      setState(initBattle(generateBeast(mySeed, myLevel), generateBeast(botSeed), `bot${myNonce.current}`))
-      return
-    }
+    if (mode === 'bot') return
     if (mode === 'bt') {
       setStatus('Searching for a nearby player…')
       nearby.start()
