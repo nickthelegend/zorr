@@ -72,6 +72,7 @@ describe('protocol', () => {
   const cases: BattleMsg[] = [
     { type: 'hello', nonce: 42 },
     { type: 'beast', seed: 'abc-123', level: 3 },
+    { type: 'seed', seed: 'deadbeef00ff' },
     { type: 'go' },
     { type: 'move', turn: 7, index: 2 },
   ]

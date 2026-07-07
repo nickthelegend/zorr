@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import { router, useLocalSearchParams } from 'expo-router'
-import { Bluetooth, Bot, Globe, Trophy, X } from 'lucide-react-native'
+import { Bluetooth, Bot, Globe, Sparkles, Trophy, X } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeIn } from 'react-native-reanimated'
@@ -24,11 +24,13 @@ import {
 import { electRole, encodeBattleMsg, matchSeed, parseBattleMsg, type Role } from '../features/battle/protocol'
 import { useNearby } from '../features/battle/use-nearby'
 import { useSocket } from '../features/battle/use-socket'
+import { requestVrfSeed } from '../features/chain/vrf'
+import { hexSeed, scopeFromString } from '../features/chain/vrf-seed'
 import { useGame } from '../features/game/game-store'
 import { colors, fonts, radius } from '../theme'
 
 type Mode = 'bot' | 'bt' | 'online'
-type Phase = 'connecting' | 'battle' | 'result'
+type Phase = 'connecting' | 'summoning' | 'battle' | 'result'
 const TURN_SECONDS = 30
 
 export default function BattleArena() {
@@ -57,6 +59,7 @@ export default function BattleArena() {
   const peerNonceRef = useRef<number | null>(null)
   const peerBeastRef = useRef<{ seed: string; level: number } | null>(null)
   const goRef = useRef(false)
+  const battleSeedRef = useRef<string | null>(null) // host-authoritative match seed
   const startedRef = useRef(false)
   const helloSentRef = useRef(false)
   const rewardedRef = useRef(false)
@@ -67,31 +70,54 @@ export default function BattleArena() {
   modeRef.current = mode
   const transportRef = useRef<{ send: (m: string) => void }>({ send: () => {} })
 
-  const startBattle = useCallback(() => {
-    const peer = peerBeastRef.current
-    if (!peer || peerNonceRef.current == null || !roleRef.current) return
-    const seed = matchSeed(myNonce.current, peerNonceRef.current)
-    const iAmHost = roleRef.current === 'host'
-    const hostSeed = iAmHost ? mySeed : peer.seed
-    const hostLvl = iAmHost ? myLevel : peer.level
-    const guestSeed = iAmHost ? peer.seed : mySeed
-    const guestLvl = iAmHost ? peer.level : myLevel
-    mySideRef.current = iAmHost ? 'p1' : 'p2'
-    setState(battleFromSeeds(hostSeed, hostLvl, guestSeed, guestLvl, seed))
-    setPhase('battle')
-  }, [mySeed])
+  // Build the battle from an agreed match seed (VRF or the deterministic
+  // fallback). p1 = host's Guardian, p2 = guest's — a convention both know.
+  const beginBattleWithSeed = useCallback(
+    (matchSeedStr: string) => {
+      const peer = peerBeastRef.current
+      if (!peer || !roleRef.current) return
+      const iAmHost = roleRef.current === 'host'
+      const hostSeed = iAmHost ? mySeed : peer.seed
+      const hostLvl = iAmHost ? myLevel : peer.level
+      const guestSeed = iAmHost ? peer.seed : mySeed
+      const guestLvl = iAmHost ? peer.level : myLevel
+      mySideRef.current = iAmHost ? 'p1' : 'p2'
+      setState(battleFromSeeds(hostSeed, hostLvl, guestSeed, guestLvl, matchSeedStr))
+      setPhase('battle')
+    },
+    [mySeed],
+  )
+
+  // Host is the seed authority: it draws a verifiable VRF seed (falling back to
+  // the deterministic nonce seed if VRF is unreachable), broadcasts the final
+  // seed, then starts. This keeps both phones on the *same* seed — no desync —
+  // and the seed is on-chain verifiable for the match scope.
+  const startAsHost = useCallback(async () => {
+    const nonceSeed = matchSeed(myNonce.current, peerNonceRef.current ?? 0)
+    setPhase('summoning')
+    let finalSeed = nonceSeed
+    try {
+      const { seed } = await requestVrfSeed(scopeFromString(nonceSeed))
+      finalSeed = hexSeed(seed)
+    } catch {
+      finalSeed = nonceSeed
+    }
+    battleSeedRef.current = finalSeed
+    transportRef.current.send(encodeBattleMsg({ type: 'seed', seed: finalSeed }))
+    transportRef.current.send(encodeBattleMsg({ type: 'go' }))
+    beginBattleWithSeed(finalSeed)
+  }, [beginBattleWithSeed])
 
   const tryStart = useCallback(() => {
     if (startedRef.current || !roleRef.current || !peerBeastRef.current) return
     if (roleRef.current === 'host') {
       startedRef.current = true
-      transportRef.current.send(encodeBattleMsg({ type: 'go' }))
-      startBattle()
-    } else if (goRef.current) {
+      startAsHost()
+    } else if (goRef.current && battleSeedRef.current) {
       startedRef.current = true
-      startBattle()
+      beginBattleWithSeed(battleSeedRef.current)
     }
-  }, [startBattle])
+  }, [startAsHost, beginBattleWithSeed])
 
   const applyPeerMove = useCallback((turn: number, index: number) => {
     const s = stateRef.current
@@ -119,6 +145,12 @@ export default function BattleArena() {
         }
         case 'beast':
           peerBeastRef.current = { seed: msg.seed, level: msg.level }
+          tryStart()
+          break
+        case 'seed':
+          // Guest receives the host's authoritative match seed.
+          battleSeedRef.current = msg.seed
+          setPhase('summoning')
           tryStart()
           break
         case 'go':
@@ -255,7 +287,8 @@ export default function BattleArena() {
   const connError = mode === 'bt' ? nearby.error : mode === 'online' ? socket.error : null
 
   // ---- Render ----
-  if (phase === 'connecting' || !state) {
+  if (phase === 'connecting' || phase === 'summoning' || !state) {
+    const summoning = phase === 'summoning'
     return (
       <View style={styles.root}>
         <Aurora />
@@ -265,13 +298,19 @@ export default function BattleArena() {
           </TouchableOpacity>
           <View style={styles.connectCenter}>
             <View style={styles.connIcon}>
-              {mode === 'bt' ? <Bluetooth color={colors.primary} size={30} /> : <Globe color={colors.primary} size={30} />}
+              {summoning ? (
+                <Sparkles color={colors.gold} size={30} />
+              ) : mode === 'bt' ? (
+                <Bluetooth color={colors.primary} size={30} />
+              ) : (
+                <Globe color={colors.primary} size={30} />
+              )}
             </View>
-            {mode === 'online' ? <Text style={styles.roomCode}>{room}</Text> : null}
-            <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
-            <Text style={styles.connStatus}>{status}</Text>
-            {connError ? <Text style={styles.connError}>{connError}</Text> : null}
-            {mode === 'online' ? <Text style={styles.connHint}>Share this room code with a friend to duel.</Text> : null}
+            {mode === 'online' && !summoning ? <Text style={styles.roomCode}>{room}</Text> : null}
+            <ActivityIndicator color={summoning ? colors.gold : colors.primary} style={{ marginVertical: 16 }} />
+            <Text style={styles.connStatus}>{summoning ? 'Rolling verifiable fate — MagicBlock VRF…' : status}</Text>
+            {connError && !summoning ? <Text style={styles.connError}>{connError}</Text> : null}
+            {mode === 'online' && !summoning ? <Text style={styles.connHint}>Share this room code with a friend to duel.</Text> : null}
           </View>
         </SafeAreaView>
       </View>

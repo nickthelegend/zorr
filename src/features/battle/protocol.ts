@@ -11,6 +11,7 @@
 export type BattleMsg =
   | { type: 'hello'; nonce: number }
   | { type: 'beast'; seed: string; level: number }
+  | { type: 'seed'; seed: string } // host-authoritative match seed (VRF or fallback)
   | { type: 'go' }
   | { type: 'move'; turn: number; index: number }
 
@@ -25,6 +26,8 @@ export function encodeBattleMsg(m: BattleMsg): string {
       return `H:${m.nonce}`
     case 'beast':
       return `B:${m.seed}:${m.level}`
+    case 'seed':
+      return `S:${m.seed}`
     case 'go':
       return 'G'
     case 'move':
@@ -41,6 +44,9 @@ export function parseBattleMsg(text: string): BattleMsg | null {
   }
   if (tag === 'B' && parts.length === 3 && SEED_OK.test(parts[1]) && DIGITS.test(parts[2])) {
     return { type: 'beast', seed: parts[1], level: Number(parts[2]) }
+  }
+  if (tag === 'S' && parts.length === 2 && SEED_OK.test(parts[1])) {
+    return { type: 'seed', seed: parts[1] }
   }
   if (tag === 'M' && parts.length === 3 && DIGITS.test(parts[1]) && DIGITS.test(parts[2])) {
     return { type: 'move', turn: Number(parts[1]), index: Number(parts[2]) }
