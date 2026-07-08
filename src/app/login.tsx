@@ -1,4 +1,4 @@
-import { useEmbeddedSolanaWallet, useLoginWithEmail, usePrivy } from '@privy-io/expo'
+import { useCreateGuestAccount, useEmbeddedSolanaWallet, useLoginWithEmail, usePrivy } from '@privy-io/expo'
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
 import * as SecureStore from 'expo-secure-store'
@@ -29,6 +29,7 @@ export default function LoginScreen() {
   const { sendCode, loginWithCode } = useLoginWithEmail()
   const { user } = usePrivy()
   const solana = useEmbeddedSolanaWallet()
+  const { create: createGuestAccount } = useCreateGuestAccount()
   const game = useGame()
 
   const [step, setStep] = useState<Step>('email')
@@ -38,7 +39,7 @@ export default function LoginScreen() {
   const [color, setColor] = useState<string>(game.color)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [guest, setGuest] = useState(false)
+  const [walletFailed, setWalletFailed] = useState(false)
   const flowStarted = useRef(false)
 
   // Returning user already has a Privy session → skip straight to the app.
@@ -77,24 +78,63 @@ export default function LoginScreen() {
   }
 
   const playAsGuest = () => {
-    setGuest(true)
+    flowStarted.current = true // guest account creation must not trigger the returning-user redirect
     setStep('identity')
   }
 
+  const finishEntry = async () => {
+    game.setIdentity(name, color)
+    await SecureStore.setItemAsync('zorr.entered', '1')
+    router.replace('/home')
+  }
+
+  // Make sure a Privy user + embedded Solana wallet actually exist before
+  // entering. Guests get a REAL Privy guest account (no OTP) so everyone has
+  // an embedded wallet. Failures are SHOWN (never swallowed) with retry + an
+  // explicit skip. The wallet step runs in an effect because the provider only
+  // exposes create()/recover() on the render after the user appears.
+  const [entering, setEntering] = useState(false)
+  const walletAttempted = useRef(false)
+
   const handleEnter = async () => {
     setBusy(true)
+    setError(null)
+    walletAttempted.current = false
     try {
-      if (!guest && !solana?.wallets?.length && solana?.create) {
-        await solana.create()
-      }
-    } catch {
-      // wallet may already exist
-    } finally {
-      game.setIdentity(name, color)
-      await SecureStore.setItemAsync('zorr.entered', '1')
-      router.replace('/home')
+      if (!user) await createGuestAccount() // real Privy guest user
+      setEntering(true)
+    } catch (e) {
+      setWalletFailed(true)
+      setError(`Privy account failed: ${e instanceof Error ? e.message : String(e)}`)
+      setBusy(false)
     }
   }
+
+  useEffect(() => {
+    if (!entering || !user || walletAttempted.current) return
+    if (solana?.wallets?.length) {
+      walletAttempted.current = true
+      finishEntry()
+      return
+    }
+    const canRecover = solana?.status === 'needs-recovery' && !!solana.recover
+    if (!canRecover && !solana?.create) return // provider not ready yet — next render
+    walletAttempted.current = true
+    ;(async () => {
+      try {
+        if (canRecover) await solana.recover!()
+        else await solana.create!()
+        await finishEntry()
+      } catch (e) {
+        walletAttempted.current = false
+        setEntering(false)
+        setBusy(false)
+        setWalletFailed(true)
+        setError(`Wallet setup failed: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entering, user, solana])
 
   return (
     <View style={styles.root}>
@@ -179,7 +219,12 @@ export default function LoginScreen() {
                         </TouchableOpacity>
                       ))}
                     </View>
-                    <PrimaryButton label="Enter Zorr" busy={busy} onPress={handleEnter} />
+                    <PrimaryButton label={busy ? 'Setting up wallet…' : 'Enter Zorr'} busy={busy} onPress={handleEnter} />
+                    {walletFailed ? (
+                      <TouchableOpacity onPress={finishEntry} disabled={busy}>
+                        <Text style={styles.link}>Enter without a wallet for now</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </StepBody>
                 )}
                 {error ? <Text style={styles.error}>{error}</Text> : null}

@@ -45,13 +45,17 @@ export default function WalletScreen() {
     onSuccess: () => setTimeout(() => refetch(), 2500),
   })
 
+  const [walletErr, setWalletErr] = useState<string | null>(null)
   const createEmbedded = async () => {
     if (!privy.create) return
     setCreating(true)
+    setWalletErr(null)
     try {
       await privy.create()
-    } catch {
-      // surfaced by status below
+    } catch (e) {
+      // Never swallow — show the exact reason (e.g. Solana wallets disabled in
+      // the Privy dashboard, network, recovery required).
+      setWalletErr(e instanceof Error ? e.message : String(e))
     } finally {
       setCreating(false)
     }
@@ -118,15 +122,55 @@ export default function WalletScreen() {
                 <Text style={styles.privyLinkText}>View {short(privy.address)} on Explorer</Text>
               </TouchableOpacity>
             </>
+          ) : privy.status === 'creating' || privy.status === 'connecting' || privy.status === 'reconnecting' ? (
+            <>
+              <ActivityIndicator color={colors.primary} size="small" />
+              <Text style={[styles.privyHint, { marginTop: 8 }]}>
+                {privy.status === 'creating' ? 'Creating your embedded wallet…' : 'Connecting your embedded wallet…'}
+              </Text>
+              {privy.accountAddress ? <Text style={styles.privyAddr}>{privy.accountAddress}</Text> : null}
+            </>
+          ) : privy.status === 'needs-recovery' ? (
+            <>
+              <Text style={styles.privyHint}>
+                Your wallet {privy.accountAddress ? short(privy.accountAddress) + ' ' : ''}exists on your Privy account —
+                recover it on this device.
+              </Text>
+              <TouchableOpacity
+                style={styles.privyBtn}
+                activeOpacity={0.85}
+                onPress={async () => {
+                  setCreating(true)
+                  try {
+                    await privy.recover?.()
+                  } finally {
+                    setCreating(false)
+                  }
+                }}
+                disabled={creating}
+              >
+                {creating ? <ActivityIndicator color={colors.text} size="small" /> : <KeyRound color={colors.text} size={16} />}
+                <Text style={styles.privyBtnText}>{creating ? 'Recovering…' : 'Recover wallet'}</Text>
+              </TouchableOpacity>
+            </>
           ) : (
             <>
-              <Text style={styles.privyHint}>Signed in — create your embedded Solana wallet.</Text>
+              <Text style={styles.privyHint}>
+                {privy.error
+                  ? `Wallet error: ${privy.error}`
+                  : privy.accountAddress
+                    ? `Your account has wallet ${short(privy.accountAddress)} — reconnect it on this device.`
+                    : 'Signed in — create your embedded Solana wallet.'}
+              </Text>
               <TouchableOpacity style={styles.privyBtn} activeOpacity={0.85} onPress={createEmbedded} disabled={creating}>
                 {creating ? <ActivityIndicator color={colors.text} size="small" /> : <KeyRound color={colors.text} size={16} />}
-                <Text style={styles.privyBtnText}>{creating ? 'Creating…' : 'Create wallet'}</Text>
+                <Text style={styles.privyBtnText}>
+                  {creating ? 'Working…' : privy.error || privy.accountAddress ? 'Retry connect' : 'Create wallet'}
+                </Text>
               </TouchableOpacity>
             </>
           )}
+          {walletErr ? <Text style={styles.err}>{walletErr}</Text> : null}
           </GlowCard>
         </Animated.View>
 

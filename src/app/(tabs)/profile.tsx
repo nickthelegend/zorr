@@ -99,7 +99,7 @@ export default function ProfileScreen() {
                 <View style={styles.rankRow}>
                   <Mail color={email ? colors.primary : colors.textFaint} size={13} />
                   <Text style={[styles.rank, !email && { color: colors.textFaint }]}>
-                    {email ?? 'Guest — sign in for a Privy wallet'}
+                    {email ?? 'Guest account — link email to keep it'}
                   </Text>
                 </View>
               </View>
