@@ -8,6 +8,7 @@ import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpac
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { GhostBtn, GlowCard } from '../../components/ui'
 import { getSignerAddress } from '../../features/chain/claim'
 import { DEVNET_RPC, useDevnetBalance } from '../../features/wallet/use-devnet-balance'
 import { useSolanaAccount } from '../../features/wallet/use-solana-account'
@@ -72,7 +73,8 @@ export default function WalletScreen() {
         </Animated.View>
 
         {/* Privy embedded wallet — your identity wallet from email login */}
-        <Animated.View entering={FadeInDown.delay(120)} style={styles.privyCard}>
+        <Animated.View entering={FadeInDown.delay(120)} style={{ marginTop: 14 }}>
+          <GlowCard borderTint={colors.primary} tint={colors.primary} contentStyle={styles.privyCard}>
           <View style={styles.cardHead}>
             <KeyRound color={colors.primary} size={16} />
             <Text style={styles.cardTitle}>PRIVY EMBEDDED WALLET</Text>
@@ -118,6 +120,7 @@ export default function WalletScreen() {
               </TouchableOpacity>
             </>
           )}
+          </GlowCard>
         </Animated.View>
 
         <Text style={styles.fundHint}>
@@ -127,43 +130,41 @@ export default function WalletScreen() {
 
         {/* Actions */}
         <Animated.View entering={FadeInDown.delay(200)} style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.action, (!addr || airdrop.isPending) && { opacity: 0.5 }]}
-            activeOpacity={0.85}
+          <GhostBtn
+            label={airdrop.isPending ? 'Requesting…' : 'Request 1 SOL'}
+            icon={<Droplet color={colors.territory} size={18} />}
             onPress={() => airdrop.mutate()}
             disabled={!addr || airdrop.isPending}
-          >
-            <Droplet color={colors.territory} size={18} />
-            <Text style={styles.actionLabel}>{airdrop.isPending ? 'Requesting…' : 'Request 1 SOL'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.action}
-            activeOpacity={0.85}
+            style={{ flex: 1 }}
+          />
+          <GhostBtn
+            label="View on Explorer"
+            icon={<Link2 color={colors.primary} size={18} />}
             onPress={() => addr && Linking.openURL(`https://explorer.solana.com/address/${addr}?cluster=devnet`)}
-          >
-            <Link2 color={colors.primary} size={18} />
-            <Text style={styles.actionLabel}>View on Explorer</Text>
-          </TouchableOpacity>
+            style={{ flex: 1 }}
+          />
         </Animated.View>
         {airdrop.isError ? <Text style={styles.err}>Faucet rate-limited — fund the address manually.</Text> : null}
         {airdrop.isSuccess ? <Text style={styles.ok}>Airdrop requested — balance updates shortly.</Text> : null}
 
         {/* Assets */}
-        <Animated.View entering={FadeInDown.delay(260)} style={styles.card}>
-          <View style={styles.cardHead}>
-            <Coins color={colors.gold} size={16} />
-            <Text style={styles.cardTitle}>ASSETS</Text>
-          </View>
-          <View style={styles.assetRow}>
-            <View style={[styles.assetBadge, { borderColor: colors.primary }]}>
-              <Text style={[styles.assetSymbol, { color: colors.primary }]}>◎</Text>
+        <Animated.View entering={FadeInDown.delay(260)} style={{ marginTop: 20 }}>
+          <GlowCard contentStyle={styles.assetsCard}>
+            <View style={styles.cardHead}>
+              <Coins color={colors.gold} size={16} />
+              <Text style={styles.cardTitle}>ASSETS</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.assetName}>Solana</Text>
-              <Text style={styles.assetSym}>SOL · DEVNET</Text>
+            <View style={styles.assetRow}>
+              <View style={[styles.assetBadge, { borderColor: colors.primary }]}>
+                <Text style={[styles.assetSymbol, { color: colors.primary }]}>◎</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.assetName}>Solana</Text>
+                <Text style={styles.assetSym}>SOL · DEVNET</Text>
+              </View>
+              <Text style={styles.assetAmount}>{(balance ?? 0).toFixed(4)}</Text>
             </View>
-            <Text style={styles.assetAmount}>{(balance ?? 0).toFixed(4)}</Text>
-          </View>
+          </GlowCard>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
@@ -180,14 +181,8 @@ const styles = StyleSheet.create({
   heroBalance: { color: colors.text, fontSize: 46, fontFamily: fonts.display, marginTop: 8 },
   heroUnit: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontFamily: fonts.mono, marginTop: -4 },
   address: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontFamily: fonts.mono, marginTop: 16 },
-  privyCard: {
-    marginTop: 14,
-    backgroundColor: 'rgba(124,58,237,0.06)',
-    borderWidth: 1,
-    borderColor: colors.primaryBorder,
-    borderRadius: radius.xl,
-    padding: 18,
-  },
+  privyCard: { padding: 18 },
+  assetsCard: { padding: 18 },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   cardTitle: { color: colors.textDim, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, flex: 1 },
   dot: { width: 8, height: 8, borderRadius: 4 },
@@ -210,29 +205,8 @@ const styles = StyleSheet.create({
   privyBtnText: { color: colors.text, fontSize: 14, fontWeight: '700' },
   fundHint: { color: colors.textDim, fontSize: 13, marginTop: 12, lineHeight: 18 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 16 },
-  action: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  actionLabel: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
   err: { color: colors.enemy, fontSize: 12, marginTop: 10 },
   ok: { color: colors.territory, fontSize: 12, marginTop: 10 },
-  card: {
-    marginTop: 20,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.xl,
-    padding: 18,
-  },
   assetRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   assetBadge: {
     width: 40,

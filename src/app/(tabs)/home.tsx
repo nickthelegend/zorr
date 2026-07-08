@@ -1,12 +1,12 @@
-import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
 import { Bell, Play, Shield, Swords } from 'lucide-react-native'
 import { useEffect } from 'react'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { LevelRing } from '../../components/level-ring'
+import { CTA, Eyebrow, GlowCard, Press } from '../../components/ui'
 import { levelForXp, useGame } from '../../features/game/game-store'
 import { formatKm, formatWinRate, nextRank, rankForLevel } from '../../features/game/stats'
 import { fetchOwned, getOwnerAddress } from '../../features/nft/nft'
@@ -16,8 +16,10 @@ import { colors, fonts, radius } from '../../theme'
 function LogCell({ value, label, delay, accent }: { value: string; label: string; delay: number; accent?: string }) {
   return (
     <Animated.View entering={FadeInDown.delay(delay)} style={styles.logCell}>
-      <Text style={[styles.logValue, accent ? { color: accent } : null]}>{value}</Text>
-      <Text style={styles.logLabel}>{label}</Text>
+      <GlowCard radiusSize={radius.lg} contentStyle={styles.logInner}>
+        <Text style={[styles.logValue, accent ? { color: accent } : null]}>{value}</Text>
+        <Text style={styles.logLabel}>{label}</Text>
+      </GlowCard>
     </Animated.View>
   )
 }
@@ -52,27 +54,28 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.hi}>GM, {game.name}</Text>
-            <Text style={styles.brand}>ZORR</Text>
+          <View style={styles.headerLeft}>
+            <View style={[styles.avatar, { borderColor: game.color, shadowColor: game.color }]}>
+              <Text style={[styles.avatarText, { color: game.color }]}>{game.name.charAt(0).toUpperCase()}</Text>
+            </View>
+            <View>
+              <Text style={styles.hi}>GM, {game.name}</Text>
+              <Text style={styles.brand}>ZORR</Text>
+            </View>
           </View>
-          <TouchableOpacity style={styles.bell}>
-            <Bell color={colors.text} size={20} />
-          </TouchableOpacity>
+          <Press onPress={() => {}}>
+            <View style={styles.bell}>
+              <Bell color={colors.textMuted} size={19} />
+            </View>
+          </Press>
         </View>
 
-        {/* Command hero: territory + compass level ring */}
+        {/* Command hero */}
         <Animated.View entering={FadeInDown.delay(60)}>
-          <View style={styles.hero}>
-            <LinearGradient
-              colors={[game.color + '2E', 'transparent']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
+          <GlowCard tint={game.color} glow={game.color} contentStyle={styles.heroContent}>
             <View style={styles.heroRow}>
               <View style={styles.heroLeft}>
-                <View style={[styles.rankPill, { borderColor: rank.color + '66' }]}>
+                <View style={[styles.rankPill, { borderColor: rank.color + '66', backgroundColor: rank.color + '14' }]}>
                   <Text style={[styles.rankText, { color: rank.color }]}>{rank.title}</Text>
                 </View>
                 <Text style={styles.heroArea}>
@@ -85,35 +88,34 @@ export default function HomeScreen() {
               </View>
               <LevelRing progress={into / need} level={level} color={rank.color} />
             </View>
-          </View>
+          </GlowCard>
         </Animated.View>
 
         {/* Start run CTA */}
-        <Animated.View entering={FadeInDown.delay(140)}>
-          <TouchableOpacity activeOpacity={0.9} onPress={() => router.push('/capture')}>
-            <LinearGradient colors={['#22D3A6', '#0F766E']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.cta}>
-              <Play color="#04110C" size={20} fill="#04110C" />
-              <Text style={styles.ctaText}>Start a Run</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+        <Animated.View entering={FadeInDown.delay(140)} style={{ marginTop: 18 }}>
+          <CTA label="Start a Run" icon={<Play color="#04110C" size={20} fill="#04110C" />} onPress={() => router.push('/capture')} />
           <Text style={styles.ctaHint}>Capture territory as you move. Every run logs on-chain.</Text>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(180)} style={styles.actionRow}>
-          <TouchableOpacity style={styles.action} activeOpacity={0.85} onPress={() => router.push('/guardians')}>
-            <Shield color={colors.primary} size={18} />
-            <Text style={styles.duelText}>Guardians</Text>
-            <Text style={styles.duelHint}>{game.beasts.length} in roster</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.action} activeOpacity={0.85} onPress={() => router.push('/battle')}>
-            <Swords color={colors.enemy} size={18} />
-            <Text style={styles.duelText}>Duel</Text>
-            <Text style={styles.duelHint}>BT · online · AI</Text>
-          </TouchableOpacity>
+          <Press style={styles.actionFlex} onPress={() => router.push('/guardians')}>
+            <GlowCard radiusSize={radius.lg} contentStyle={styles.action}>
+              <Shield color={colors.primary} size={18} />
+              <Text style={styles.actionText}>Guardians</Text>
+              <Text style={styles.actionHint}>{game.beasts.length} in roster</Text>
+            </GlowCard>
+          </Press>
+          <Press style={styles.actionFlex} onPress={() => router.push('/battle')}>
+            <GlowCard radiusSize={radius.lg} contentStyle={styles.action}>
+              <Swords color={colors.enemy} size={18} />
+              <Text style={styles.actionText}>Duel</Text>
+              <Text style={styles.actionHint}>BT · online · AI</Text>
+            </GlowCard>
+          </Press>
         </Animated.View>
 
         {/* Mission log — lifetime metrics */}
-        <Text style={styles.section}>MISSION LOG</Text>
+        <Eyebrow style={styles.section}>MISSION LOG</Eyebrow>
         <View style={styles.logGrid}>
           <LogCell value={`${s.runs}`} label="RUNS" delay={220} />
           <LogCell value={formatKm(s.distanceKm)} label="KM COVERED" delay={250} />
@@ -129,28 +131,36 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 16, paddingBottom: 100 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  hi: { color: colors.textDim, fontSize: 13, letterSpacing: 0.5 },
-  brand: { color: colors.text, fontFamily: fonts.display, fontSize: 26, letterSpacing: 2, marginTop: 2 },
-  bell: {
+  content: { padding: 16, paddingBottom: 110 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface2,
+    shadowOpacity: 0.7,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  avatarText: { fontFamily: fonts.display, fontSize: 18 },
+  hi: { color: colors.textDim, fontSize: 12.5, letterSpacing: 0.4 },
+  brand: { color: colors.text, fontFamily: fonts.display, fontSize: 22, letterSpacing: 2, marginTop: 1 },
+  bell: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.hairline,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  hero: {
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    padding: 20,
-    overflow: 'hidden',
-  },
+  heroContent: { padding: 20 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   heroLeft: { flex: 1 },
   rankPill: {
@@ -166,44 +176,16 @@ const styles = StyleSheet.create({
   heroUnit: { fontSize: 18, color: colors.textDim },
   heroLabel: { color: colors.textDim, fontSize: 11, marginTop: 6, letterSpacing: 1.2 },
   xpLine: { color: colors.textFaint, fontSize: 10, fontFamily: fonts.mono, letterSpacing: 0.5, marginTop: 10 },
-  cta: {
-    marginTop: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 18,
-    borderRadius: radius.lg,
-  },
-  ctaText: { color: '#04110C', fontSize: 17, fontWeight: '800', letterSpacing: 0.3 },
   ctaHint: { color: colors.textDim, fontSize: 12.5, textAlign: 'center', marginTop: 10 },
   actionRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
-  action: {
-    flex: 1,
-    alignItems: 'flex-start',
-    gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-  },
-  duelText: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  duelHint: { color: colors.textDim, fontSize: 12, marginLeft: 'auto' },
-  section: { color: colors.textFaint, fontSize: 11, letterSpacing: 2, marginTop: 24, marginBottom: 10 },
+  actionFlex: { flex: 1 },
+  action: { alignItems: 'flex-start', gap: 6, paddingVertical: 16, paddingHorizontal: 16 },
+  actionText: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  actionHint: { color: colors.textDim, fontSize: 12 },
+  section: { marginTop: 24, marginBottom: 12 },
   logGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  logCell: {
-    width: '31.5%',
-    flexGrow: 1,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    paddingVertical: 16,
-    alignItems: 'center',
-    gap: 6,
-  },
+  logCell: { width: '31.5%', flexGrow: 1 },
+  logInner: { paddingVertical: 16, alignItems: 'center', gap: 6 },
   logValue: { color: colors.text, fontSize: 19, fontFamily: fonts.display },
   logLabel: { color: colors.textFaint, fontSize: 9, letterSpacing: 1 },
 })

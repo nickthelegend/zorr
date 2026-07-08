@@ -1,72 +1,40 @@
-import { BlurView } from 'expo-blur'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useEffect } from 'react'
-import { Dimensions, StyleSheet, View } from 'react-native'
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated'
+import { StyleSheet, View } from 'react-native'
 
-const { width, height } = Dimensions.get('window')
-
-/** Slow-drifting colored glow blobs — premium animated ambiance behind dark UI. */
-function Blob({
-  colors,
-  size,
-  from,
-  to,
-  duration,
-}: {
-  colors: readonly [string, string, ...string[]]
-  size: number
-  from: { x: number; y: number }
-  to: { x: number; y: number }
-  duration: number
-}) {
-  const t = useSharedValue(0)
-  useEffect(() => {
-    t.value = withRepeat(withTiming(1, { duration, easing: Easing.inOut(Easing.sin) }), -1, true)
-  }, [t, duration])
-  const style = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: from.x + (to.x - from.x) * t.value },
-      { translateY: from.y + (to.y - from.y) * t.value },
-    ],
-  }))
-  return (
-    <Animated.View style={[styles.blob, { width: size, height: size, borderRadius: size / 2 }, style]}>
-      <LinearGradient colors={colors} style={StyleSheet.absoluteFill} start={{ x: 0.2, y: 0.2 }} end={{ x: 0.8, y: 0.8 }} />
-    </Animated.View>
-  )
-}
-
+/**
+ * Static nebula backdrop — a calm, layered wash of violet over pure black.
+ * Deliberately NOT animated: Android renders drifting gradient blobs with hard
+ * edges (BlurView barely blurs there), which reads cheap. Stillness reads
+ * premium; the game's motion lives in the content, not the wallpaper.
+ */
 export function Aurora() {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Blob
-        colors={['rgba(124,58,237,0.55)', 'rgba(124,58,237,0)']}
-        size={width * 1.1}
-        from={{ x: -width * 0.3, y: -height * 0.1 }}
-        to={{ x: width * 0.1, y: height * 0.05 }}
-        duration={9000}
+      {/* Deep violet-black vertical wash */}
+      <LinearGradient
+        colors={['#0C0716', '#06040B', '#000000']}
+        locations={[0, 0.45, 1]}
+        style={StyleSheet.absoluteFill}
       />
-      <Blob
-        colors={['rgba(34,211,166,0.35)', 'rgba(34,211,166,0)']}
-        size={width}
-        from={{ x: width * 0.4, y: height * 0.5 }}
-        to={{ x: width * 0.1, y: height * 0.7 }}
-        duration={11000}
+      {/* Faint brand glow bleeding from the top edge */}
+      <LinearGradient
+        colors={['rgba(124,58,237,0.14)', 'rgba(124,58,237,0)']}
+        style={styles.top}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
       />
-      <Blob
-        colors={['rgba(244,63,94,0.22)', 'rgba(244,63,94,0)']}
-        size={width * 0.9}
-        from={{ x: width * 0.5, y: -height * 0.05 }}
-        to={{ x: width * 0.2, y: height * 0.15 }}
-        duration={13000}
+      {/* Whisper of emerald grounding the bottom */}
+      <LinearGradient
+        colors={['rgba(34,211,166,0)', 'rgba(34,211,166,0.05)']}
+        style={styles.bottom}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
       />
-      {/* Melt the blob edges into soft glows. */}
-      <BlurView intensity={55} tint="dark" style={StyleSheet.absoluteFill} />
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  blob: { position: 'absolute', opacity: 0.9 },
+  top: { position: 'absolute', top: 0, left: 0, right: 0, height: '38%' },
+  bottom: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '30%' },
 })

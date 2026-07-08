@@ -1,4 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
 import { Bluetooth, Bot, Globe, Repeat, Swords, X } from 'lucide-react-native'
 import { useState } from 'react'
@@ -8,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Aurora } from '../components/aurora'
 import { BeastCard } from '../components/beast-card'
+import { CTA, GhostBtn } from '../components/ui'
 import { useGame } from '../features/game/game-store'
 import { colors, fonts, radius } from '../theme'
 
@@ -59,17 +59,17 @@ export default function BattleLobby() {
 
         {/* Modes */}
         <Animated.View entering={FadeInDown.delay(120)} style={styles.modes}>
-          <TouchableOpacity activeOpacity={0.9} onPress={() => router.push('/battle-arena?mode=bot')}>
-            <LinearGradient colors={['#22D3A6', '#0F766E']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryBtn}>
-              <Bot color="#04110C" size={20} />
-              <Text style={styles.primaryText}>Quick Duel · vs AI</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          <CTA
+            label="Quick Duel · vs AI"
+            icon={<Bot color="#04110C" size={20} />}
+            onPress={() => router.push('/battle-arena?mode=bot')}
+          />
 
-          <TouchableOpacity style={styles.altBtn} activeOpacity={0.9} onPress={() => router.push('/battle-arena?mode=bt')}>
-            <Bluetooth color={colors.text} size={20} />
-            <Text style={styles.altText}>Bluetooth · nearby player</Text>
-          </TouchableOpacity>
+          <GhostBtn
+            label="Bluetooth · nearby player"
+            icon={<Bluetooth color={colors.text} size={20} />}
+            onPress={() => router.push('/battle-arena?mode=bt')}
+          />
 
           <View style={styles.onlineRow}>
             <TextInput
@@ -82,10 +82,7 @@ export default function BattleLobby() {
               value={room}
               onChangeText={setRoom}
             />
-            <TouchableOpacity style={styles.onlineBtn} activeOpacity={0.9} onPress={goOnline}>
-              <Globe color={colors.text} size={18} />
-              <Text style={styles.altText}>{room.trim() ? 'Join' : 'Create'}</Text>
-            </TouchableOpacity>
+            <GhostBtn label={room.trim() ? 'Join' : 'Create'} icon={<Globe color={colors.text} size={18} />} onPress={goOnline} />
           </View>
           <View style={styles.hintRow}>
             <Repeat color={colors.textFaint} size={12} />

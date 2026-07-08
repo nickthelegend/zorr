@@ -1,11 +1,11 @@
 import { router } from 'expo-router'
-import { LinearGradient } from 'expo-linear-gradient'
 import { ArrowLeft, Check, Link2, Sparkles, Swords, WifiOff } from 'lucide-react-native'
 import { ActivityIndicator, Dimensions, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { SvgUri } from 'react-native-svg'
 
+import { CTA, GlowCard, Press } from '../components/ui'
 import { RARITY_COLOR } from '../features/beasts/beast'
 import { useGame } from '../features/game/game-store'
 import { assetExplorerUrl } from '../features/nft/nft'
@@ -44,7 +44,7 @@ export default function GuardiansScreen() {
 
         {/* Drop card */}
         <Animated.View entering={FadeInDown.delay(40)}>
-          <LinearGradient colors={['rgba(124,58,237,0.14)', 'rgba(0,0,0,0)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.dropCard}>
+          <GlowCard borderTint={colors.primary} tint={colors.primary} glow={colors.primary} contentStyle={styles.dropCard}>
             <View style={styles.dropTop}>
               <Text style={styles.dropTitle}>GENESIS DROP</Text>
               {g.online ? (
@@ -58,23 +58,16 @@ export default function GuardiansScreen() {
             </View>
             <Text style={styles.ownerLine}>Your wallet · {short(g.owner)}</Text>
 
-            <TouchableOpacity activeOpacity={0.9} onPress={g.claim} disabled={g.claiming || !g.online || (g.pool?.remaining === 0)}>
-              <LinearGradient
-                colors={g.online ? ['#7C3AED', '#4C1D95'] : ['#333', '#222']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.claimBtn, (g.claiming || !g.online) && { opacity: 0.7 }]}
-              >
-                {g.claiming ? (
-                  <ActivityIndicator color={colors.text} />
-                ) : (
-                  <>
-                    <Sparkles color={colors.text} size={20} />
-                    <Text style={styles.claimText}>{g.pool?.remaining === 0 ? 'Pool claimed out' : 'Claim from Genesis Drop'}</Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+            <CTA
+              label={g.pool?.remaining === 0 ? 'Pool claimed out' : 'Claim from Genesis Drop'}
+              icon={<Sparkles color={colors.text} size={20} />}
+              palette={['#8B5CF6', '#4C1D95']}
+              textColor={colors.text}
+              onPress={g.claim}
+              loading={g.claiming}
+              disabled={!g.online || g.pool?.remaining === 0}
+              style={{ marginTop: 14 }}
+            />
             <Text style={styles.claimHint}>
               {g.claiming ? 'MagicBlock VRF is drawing your Guardian…' : 'A random unclaimed NFT, picked by verifiable VRF.'}
             </Text>
@@ -82,7 +75,7 @@ export default function GuardiansScreen() {
             {!g.online ? (
               <Text style={styles.err}>Start the claim relay (npm run relay in /nft) and set EXPO_PUBLIC_CLAIM_RELAY_URL.</Text>
             ) : null}
-          </LinearGradient>
+          </GlowCard>
         </Animated.View>
 
         {/* Owned roster */}
@@ -100,8 +93,14 @@ export default function GuardiansScreen() {
               const active = b.seed === game.activeBeast
               return (
                 <Animated.View key={b.asset} entering={FadeIn.delay(60 + i * 40)} style={styles.cardWrap}>
-                  <TouchableOpacity activeOpacity={0.9} onPress={() => game.setActiveBeast(b.seed)}>
-                    <View style={[styles.card, { borderColor: active ? RARITY_COLOR[b.rarity as keyof typeof RARITY_COLOR] ?? colors.primary : colors.border }]}>
+                  <Press onPress={() => game.setActiveBeast(b.seed)}>
+                    <View
+                      style={[
+                        styles.card,
+                        { borderColor: active ? RARITY_COLOR[b.rarity as keyof typeof RARITY_COLOR] ?? colors.primary : colors.hairline },
+                        active && { shadowColor: RARITY_COLOR[b.rarity as keyof typeof RARITY_COLOR] ?? colors.primary, shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 4 }, elevation: 10 },
+                      ]}
+                    >
                       <SvgUri uri={b.image} width={CARD_W - 4} height={CARD_H - 4} />
                     </View>
                     {active ? (
@@ -110,7 +109,7 @@ export default function GuardiansScreen() {
                         <Text style={styles.activeText}>Active</Text>
                       </View>
                     ) : null}
-                  </TouchableOpacity>
+                  </Press>
                   <TouchableOpacity style={styles.explorer} onPress={() => Linking.openURL(assetExplorerUrl(b.asset))}>
                     <Link2 color={colors.textDim} size={12} />
                     <Text style={styles.explorerText}>{short(b.asset)}</Text>
@@ -121,10 +120,12 @@ export default function GuardiansScreen() {
           </View>
         )}
 
-        <TouchableOpacity style={styles.duelBtn} activeOpacity={0.9} onPress={() => router.push('/battle')}>
-          <Swords color="#04110C" size={20} />
-          <Text style={styles.duelText}>To the Arena</Text>
-        </TouchableOpacity>
+        <CTA
+          label="To the Arena"
+          icon={<Swords color="#04110C" size={20} />}
+          onPress={() => router.push('/battle')}
+          style={{ marginTop: 16 }}
+        />
       </ScrollView>
     </SafeAreaView>
   )
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
   brand: { color: colors.text, fontFamily: fonts.display, fontSize: 22 },
   content: { padding: 20, paddingBottom: 48, gap: 14 },
   sub: { color: colors.textDim, fontSize: 14, lineHeight: 20 },
-  dropCard: { borderWidth: 1, borderColor: colors.primaryBorder, borderRadius: radius.xl, padding: 18 },
+  dropCard: { padding: 18 },
   dropTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dropTitle: { color: colors.text, fontFamily: fonts.display, fontSize: 16, letterSpacing: 1 },
   poolText: { color: colors.territory, fontFamily: fonts.mono, fontSize: 13 },

@@ -7,6 +7,7 @@ import Animated, { FadeIn } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Aurora } from '../components/aurora'
+import { CTA, GlowCard, MeterBar, Press } from '../components/ui'
 import { generateBeast, type Ability } from '../features/beasts/beast'
 import { ELEMENT_META } from '../features/beasts/element'
 import {
@@ -343,9 +344,7 @@ export default function BattleArena() {
               {me.beast.name} vs {foe.beast.name}
             </Text>
             <Text style={styles.resultXp}>+{won ? WIN_XP : LOSE_XP} XP</Text>
-            <TouchableOpacity style={styles.primaryBtn} onPress={quit}>
-              <Text style={styles.primaryText}>Back to Arena</Text>
-            </TouchableOpacity>
+            <CTA label="Back to Arena" onPress={quit} style={{ alignSelf: 'stretch', marginHorizontal: 24 }} />
           </Animated.View>
         </SafeAreaView>
       </View>
@@ -401,12 +400,10 @@ export default function BattleArena() {
 
 function Fighter({ beast, align, mine }: { beast: BeastState; align: 'left' | 'right'; mine?: boolean }) {
   const el = ELEMENT_META[beast.beast.element]
-  const hpPct = Math.max(0, beast.health / beast.beast.maxHealth)
-  const enPct = Math.max(0, beast.energy / beast.beast.maxEnergy)
-  const low = hpPct < 0.3
+  const low = beast.health / beast.beast.maxHealth < 0.3
   return (
-    <View style={[styles.fighter, align === 'right' && styles.fighterRight]}>
-      <View style={[styles.avatar, { borderColor: el.color, backgroundColor: `${el.color}1A` }]}>
+    <GlowCard tint={el.color} glow={mine ? el.color : undefined} radiusSize={radius.lg} contentStyle={[styles.fighter, align === 'right' && styles.fighterRight]}>
+      <View style={[styles.avatar, { borderColor: el.color, backgroundColor: `${el.color}1A`, shadowColor: el.color }]}>
         <Text style={styles.avatarGlyph}>{beast.beast.glyph}</Text>
       </View>
       <View style={styles.fighterInfo}>
@@ -416,9 +413,11 @@ function Fighter({ beast, align, mine }: { beast: BeastState; align: 'left' | 'r
           </Text>
           {beast.status ? <Text style={[styles.statusTag, { color: colors.enemy }]}>{beast.status.type}</Text> : null}
         </View>
-        <View style={styles.barTrack}>
-          <View style={[styles.barFill, { width: `${hpPct * 100}%`, backgroundColor: low ? colors.enemy : colors.territory }]} />
-        </View>
+        <MeterBar
+          value={beast.health}
+          max={beast.beast.maxHealth}
+          palette={low ? (['#F43F5E', '#BE123C'] as const) : (['#34E3B8', '#0F766E'] as const)}
+        />
         <View style={styles.metaRow}>
           <Text style={styles.hpText}>
             {beast.health}/{beast.beast.maxHealth} HP
@@ -427,11 +426,9 @@ function Fighter({ beast, align, mine }: { beast: BeastState; align: 'left' | 'r
             {el.glyph} {el.label}
           </Text>
         </View>
-        <View style={[styles.barTrack, styles.energyTrack]}>
-          <View style={[styles.barFill, { width: `${enPct * 100}%`, backgroundColor: colors.gold }]} />
-        </View>
+        <MeterBar value={beast.energy} max={beast.beast.maxEnergy} palette={['#FBBF24', '#B45309'] as const} height={4} />
       </View>
-    </View>
+    </GlowCard>
   )
 }
 
@@ -439,16 +436,18 @@ function MoveButton({ ability, disabled, onPress }: { ability: Ability; disabled
   const el = ELEMENT_META[ability.element]
   const tint = ability.kind === 'heal' ? colors.territory : ability.kind === 'energy' ? colors.gold : ability.kind === 'guard' ? colors.textMuted : el.color
   return (
-    <TouchableOpacity style={[styles.move, { borderColor: `${tint}66` }, disabled && styles.moveOff]} activeOpacity={0.85} onPress={onPress} disabled={disabled}>
-      <LinearGradient colors={[`${tint}22`, 'rgba(0,0,0,0)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.moveGrad}>
-        <Text style={styles.moveName} numberOfLines={1}>
-          {ability.name}
-        </Text>
-        <Text style={styles.moveMeta}>
-          {ability.kind === 'attack' ? `${ability.power} pow` : ability.kind === 'heal' ? 'heal' : ability.kind === 'guard' ? 'guard' : '+energy'} · {ability.energyCost}⚡
-        </Text>
-      </LinearGradient>
-    </TouchableOpacity>
+    <Press style={[styles.move, disabled && styles.moveOff]} onPress={onPress} disabled={disabled}>
+      <View style={[styles.moveEdge, { borderColor: `${tint}55` }]}>
+        <LinearGradient colors={[`${tint}26`, 'rgba(0,0,0,0)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.moveGrad}>
+          <Text style={styles.moveName} numberOfLines={1}>
+            {ability.name}
+          </Text>
+          <Text style={styles.moveMeta}>
+            {ability.kind === 'attack' ? `${ability.power} pow` : ability.kind === 'heal' ? 'heal' : ability.kind === 'guard' ? 'guard' : '+energy'} · {ability.energyCost}⚡
+          </Text>
+        </LinearGradient>
+      </View>
+    </Press>
   )
 }
 
@@ -467,17 +466,25 @@ const styles = StyleSheet.create({
   connError: { color: colors.enemy, fontSize: 13, textAlign: 'center', marginTop: 12, lineHeight: 18 },
   connHint: { color: colors.textFaint, fontSize: 12, textAlign: 'center', marginTop: 16 },
 
-  fighter: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 12 },
+  fighter: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
   fighterRight: { flexDirection: 'row-reverse' },
-  avatar: { width: 56, height: 56, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
   avatarGlyph: { fontSize: 30 },
-  fighterInfo: { flex: 1, gap: 5 },
+  fighterInfo: { flex: 1, gap: 6 },
   fighterTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   fighterName: { color: colors.text, fontFamily: fonts.display, fontSize: 15, flexShrink: 1 },
   statusTag: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
-  barTrack: { height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
-  energyTrack: { height: 4 },
-  barFill: { height: '100%', borderRadius: 4 },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   hpText: { color: colors.textDim, fontSize: 11, fontFamily: fonts.mono },
   elBadge: { fontSize: 11, fontWeight: '700' },
@@ -490,8 +497,9 @@ const styles = StyleSheet.create({
   logLast: { color: colors.textMuted, fontSize: 13 },
 
   moves: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 12, justifyContent: 'space-between' },
-  move: { width: '48.5%', borderWidth: 1, borderRadius: radius.md, overflow: 'hidden' },
+  move: { width: '48.5%' },
   moveOff: { opacity: 0.4 },
+  moveEdge: { borderWidth: 1, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surface2 },
   moveGrad: { paddingVertical: 12, paddingHorizontal: 12, gap: 2 },
   moveName: { color: colors.text, fontSize: 14, fontWeight: '700' },
   moveMeta: { color: colors.textDim, fontSize: 11, fontFamily: fonts.mono },

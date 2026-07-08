@@ -7,8 +7,10 @@ export const colors = {
   // Base
   background: '#000000',
   surface: '#0A0A0F',
+  surface2: '#0B0B13', // card interior over the gradient hairline
   card: 'rgba(255, 255, 255, 0.04)',
   border: 'rgba(255, 255, 255, 0.1)',
+  hairline: 'rgba(255, 255, 255, 0.07)',
 
   // Brand accent (AlgoQuest violet)
   primary: '#7C3AED',
@@ -54,4 +56,6 @@ export const gradients = {
   territory: ['#22D3A6', '#0F766E'] as const,
   cardGlow: ['rgba(124, 58, 237, 0.1)', 'rgba(0, 0, 0, 0)'] as const,
   fade: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.9)'] as const,
+  // Glass hairline — the light-catching edge every premium card shares.
+  hairline: ['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.10)'] as const,
 }
