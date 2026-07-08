@@ -4,6 +4,21 @@
 
 Built for **Solana Blitz v6 (MagicBlock)**, Mobile theme.
 
+| Empire map | Command console | Genesis claim (VRF NFT) | Guardian duel | Live leaderboard |
+|---|---|---|---|---|
+| ![map](docs/screens/map-empires.png) | ![home](docs/screens/home-console.png) | ![claim](docs/screens/genesis-claim.png) | ![duel](docs/screens/arena-duel.png) | ![board](docs/screens/leaderboard-real.png) |
+
+## Why this wins the Mobile track
+
+- **Two MagicBlock products, both live on one deployed program** — Ephemeral Rollups (gasless ~100 ms
+  captures, committed to Solana) and VRF (provably-fair NFT drops + trustless battle seeds), each
+  proven by live devnet tests you can run yourself.
+- **Real assets, zero mocks** — 48 Metaplex Core NFTs with Arweave art, a VRF drop that transfers
+  them, a leaderboard of real devices (Mongo-backed), the official Privy modal + embedded wallets.
+- **A game you play with your body** — GPS territory with anti-cheat, glowing rival empires,
+  deterministic PvP over Bluetooth or the internet. Built native (Expo dev client), verified
+  end-to-end on-device throughout this repo's commit history.
+
 Zorr is an INTVL-style running game: you **Start a Run**, and the ground you physically cover becomes your territory (measured in km²). Rival clans hold part of the map — run through their tiles to steal them. An AI/heuristic anti-cheat blocks GPS spoofing and vehicles, so only real movement counts. End a run and **log it on-chain to Solana** — your territory is backed by a verifiable transaction.
 
 ## The loop

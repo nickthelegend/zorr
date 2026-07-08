@@ -1,5 +1,5 @@
 import { router } from 'expo-router'
-import { Ban, Flag, Footprints, Link2, Swords, X } from 'lucide-react-native'
+import { Ban, Flag, Footprints, Link2, Shield, Swords, X } from 'lucide-react-native'
 import { ReactNode } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
@@ -32,37 +32,43 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.lede}>Conquer your city, one tile at a time — and every run is real on-chain.</Text>
+        <Text style={styles.lede}>Run to claim real land, collect Guardian NFTs, and settle it all on Solana.</Text>
 
         <Rule
           icon={<Flag color={colors.territory} size={20} />}
           title="Start a run"
-          body="Tap Start Run and move through the real world. The ground you cover becomes your territory, measured in km²."
+          body="Tap Start Run and move through the real world. The ground you cover becomes your glowing territory, measured in km²."
           delay={40}
         />
         <Rule
           icon={<Swords color={colors.enemy} size={20} />}
-          title="Steal rival ground"
-          body="Rival clans hold part of the map. Run through their tiles to flip them to your color — worth double XP."
+          title="Raid rival empires"
+          body="Eight clans hold bordered empires across the map. Run through their territory to steal ground — worth double XP."
           delay={100}
+        />
+        <Rule
+          icon={<Shield color={colors.primary} size={20} />}
+          title="Claim a Guardian"
+          body="The Genesis drop holds 48 real NFTs. MagicBlock VRF draws yours — then battle it vs AI, over Bluetooth, or online."
+          delay={160}
         />
         <Rule
           icon={<Ban color={colors.gold} size={20} />}
           title="On foot only"
           body="Anti-cheat reads your speed and activity. Move above running pace and you're flagged as a vehicle — no captures."
-          delay={160}
+          delay={220}
         />
         <Rule
           icon={<Link2 color={colors.primary} size={20} />}
-          title="Log it on-chain"
-          body="End a run and log it to Solana. Your territory and XP are backed by a real, verifiable transaction — powered by MagicBlock."
-          delay={220}
+          title="Settle it on-chain"
+          body="Captures land gasless on a MagicBlock Ephemeral Rollup and commit back to Solana — instant, verifiable, real."
+          delay={280}
         />
         <Rule
           icon={<Footprints color={colors.territory} size={20} />}
           title="Climb the board"
-          body="Every km² pushes you up the weekly leaderboard. Hold your ground and outrun everyone."
-          delay={280}
+          body="Every km² pushes you up the live leaderboard — every row on it is a real player."
+          delay={340}
         />
 
         <Animated.View entering={FadeInDown.delay(340)}>

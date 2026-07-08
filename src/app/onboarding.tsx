@@ -35,7 +35,7 @@ const onboardingData = [
     id: '3',
     title: 'Capture the Land',
     description:
-      'Paint the map in your color, defend your zones from rivals, and climb the live leaderboard in real time.',
+      'Paint the map in your color, claim VRF-dropped Guardian NFTs, and battle rivals over Bluetooth or online.',
     lottieSource: require('../../assets/lottie/quest.json'),
     icon: Flag,
   },
