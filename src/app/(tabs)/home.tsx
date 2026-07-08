@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
 import { Bell, Play, Shield, Swords } from 'lucide-react-native'
+import { useEffect } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -8,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { LevelRing } from '../../components/level-ring'
 import { levelForXp, useGame } from '../../features/game/game-store'
 import { formatKm, formatWinRate, nextRank, rankForLevel } from '../../features/game/stats'
+import { fetchOwned, getOwnerAddress } from '../../features/nft/nft'
 import { tileAreaKm2 } from '../../features/run/use-run-session'
 import { colors, fonts, radius } from '../../theme'
 
@@ -27,6 +29,23 @@ export default function HomeScreen() {
   const promo = nextRank(level)
   const areaKm2 = game.tiles.size * tileAreaKm2(17.4239)
   const s = game.stats
+
+  // Sync the roster to the player's real owned Guardian NFTs (relay-backed).
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      try {
+        const owned = await fetchOwned(await getOwnerAddress())
+        if (live && owned.length) game.setRoster(owned.map((b) => b.seed))
+      } catch {
+        // relay offline — keep the current roster
+      }
+    })()
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

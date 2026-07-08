@@ -115,6 +115,11 @@ http
     if (req.method === 'GET' && url.pathname === '/pool') {
       return send(res, 200, { total: manifest.length, remaining: unclaimed().length, claimed: manifest.length - unclaimed().length })
     }
+    if (req.method === 'GET' && url.pathname === '/owned') {
+      const owner = url.searchParams.get('owner')
+      const beasts = owner ? manifest.filter((m) => claims[m.asset]?.owner === owner) : []
+      return send(res, 200, { owner, beasts })
+    }
     if (req.method === 'POST' && url.pathname === '/claim') {
       let raw = ''
       req.on('data', (c) => (raw += c))

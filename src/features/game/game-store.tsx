@@ -54,6 +54,7 @@ type GameState = {
   setIdentity: (name: string, color: string) => void
   mintBeast: () => string
   addBeast: (seed: string) => void
+  setRoster: (seeds: string[], active?: string) => void
   setActiveBeast: (seed: string) => void
   recordRun: (distanceKm: number) => void
   recordDuel: (won: boolean) => void
@@ -149,6 +150,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setBeasts((prev) => (prev.includes(seed) ? prev : [...prev, seed]))
         setActive(seed)
         setStats((s) => statsRecordSummon(s))
+      },
+      // Replace the roster with the player's real owned-NFT seeds (relay-synced).
+      setRoster: (seeds, active) => {
+        if (seeds.length === 0) return
+        setBeasts(seeds)
+        setActive((cur) => (active && seeds.includes(active) ? active : seeds.includes(cur) ? cur : seeds[0]))
       },
       setActiveBeast: (seed) => setActive(seed),
       recordRun: (distanceKm) => setStats((s) => statsRecordRun(s, distanceKm)),
