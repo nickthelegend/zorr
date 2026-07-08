@@ -1,5 +1,9 @@
 # Zorr — 2-minute demo script (Solana Blitz v6 · MagicBlock · Mobile)
 
+> **⚠️ DEPRECATED** — superseded by the 60-second product launch video in
+> [`videos/zorr-launch/`](videos/zorr-launch/) (see `docs/zorr-launch.mp4`).
+> Kept for reference as the long-form walkthrough script.
+
 > Pre-flight: `cd nft && npm run relay` (VRF drop + Mongo leaderboard),
 > `npm run relay` in the app root (online duels), Metro running, phone/emulator
 > with the dev client. Fund check: game wallet has devnet SOL.

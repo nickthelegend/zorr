@@ -1,12 +1,32 @@
-# Zorr — Walk & Capture the Land
+<div align="center">
 
-**A real-time GPS territory game on Solana. Conquer your city on foot — and every run is a real on-chain transaction.**
+# ⚡ ZORR
 
-Built for **Solana Blitz v6 (MagicBlock)**, Mobile theme.
+### Walk. Capture. Own the map.
 
-| Empire map | Command console | Genesis claim (VRF NFT) | Guardian duel | Live leaderboard |
-|---|---|---|---|---|
-| ![map](docs/screens/map-empires.png) | ![home](docs/screens/home-console.png) | ![claim](docs/screens/genesis-claim.png) | ![duel](docs/screens/arena-duel.png) | ![board](docs/screens/leaderboard-real.png) |
+**A real-time GPS territory game on Solana — run to claim real land, collect VRF-dropped Guardian NFTs, and battle them over Bluetooth or the internet. Every capture settles gasless on a MagicBlock Ephemeral Rollup.**
+
+Built for **Solana Blitz v6 (MagicBlock) · Mobile track**
+
+![Solana](https://img.shields.io/badge/Solana-devnet-9945FF?logo=solana&logoColor=white)
+![MagicBlock](https://img.shields.io/badge/MagicBlock-ER%20%2B%20VRF-7C3AED)
+![Expo](https://img.shields.io/badge/Expo%2055-React%20Native%200.83-000020?logo=expo&logoColor=white)
+![NFTs](https://img.shields.io/badge/Metaplex%20Core-48%20Genesis%20NFTs-14F195)
+![Tests](https://img.shields.io/badge/tests-64%20passing-22D3A6)
+
+| Empire map | Command console | Genesis claim | Guardian duel |
+|---|---|---|---|
+| ![map](docs/screens/map-empires.png) | ![home](docs/screens/home-console.png) | ![claim](docs/screens/genesis-claim.png) | ![duel](docs/screens/arena-duel.png) |
+
+| Arena lobby | Wallet + NFTs | Live leaderboard | Privy modal |
+|---|---|---|---|
+| ![lobby](docs/screens/arena-lobby.png) | ![wallet](docs/screens/wallet.png) | ![board](docs/screens/leaderboard-real.png) | ![privy](docs/screens/privy-modal.png) |
+
+| Profile & ranks | How to play |
+|---|---|
+| ![profile](docs/screens/profile.png) | ![howto](docs/screens/how-to-play.png) |
+
+</div>
 
 ## Why this wins the Mobile track
 
@@ -19,16 +39,35 @@ Built for **Solana Blitz v6 (MagicBlock)**, Mobile theme.
   deterministic PvP over Bluetooth or the internet. Built native (Expo dev client), verified
   end-to-end on-device throughout this repo's commit history.
 
-Zorr is an INTVL-style running game: you **Start a Run**, and the ground you physically cover becomes your territory (measured in km²). Rival clans hold part of the map — run through their tiles to steal them. An AI/heuristic anti-cheat blocks GPS spoofing and vehicles, so only real movement counts. End a run and **log it on-chain to Solana** — your territory is backed by a verifiable transaction.
-
 ## The loop
 
-1. **Start a Run** → your GPS path auto-captures tiles as you move.
-2. **Steal rival ground** → running through a rival tile flips it to your color (2× XP).
-3. **Live stats** → km² captured, distance, duration, pace — with a pulsing recorder.
-4. **End Run → summary** → area + XP, rate how it felt.
-5. **Log run on-chain** → a real, confirmed Solana devnet transaction.
-6. **Climb the weekly leaderboard** by km² held.
+1. **Start a Run** → the ground you physically cover becomes your glowing territory (km²).
+2. **Raid rival empires** → eight clans hold bordered regions; run through them to steal ground (2× XP).
+3. **Claim a Guardian** → MagicBlock VRF draws one of the 48 Genesis NFTs and it lands in your wallet.
+4. **Duel** → deterministic monster battles vs AI, over Bluetooth, or online by room code.
+5. **Settle on-chain** → captures run gasless on the Ephemeral Rollup and commit to Solana.
+6. **Climb the live leaderboard** — every row is a real player.
+
+## Architecture
+
+```
+┌─────────────────────────── Zorr app (Expo 55 · RN 0.83 · Hermes) ───────────────────────────┐
+│  GPS runs · anti-cheat · empire map · deterministic duel engine · Privy modal · haptics      │
+└──────┬────────────────────────┬────────────────────────┬───────────────────────┬────────────┘
+       │ @solana/kit (HTTP)     │ ability index only     │ HTTP                  │ WebSocket
+       ▼                        ▼                        ▼                       ▼
+┌───────────────┐   ┌────────────────────┐   ┌────────────────────────┐   ┌──────────────┐
+│ Solana devnet │   │ Peer (BT / socket) │   │  NFT claim relay       │   │  Duel relay  │
+│  Zorr program │   │ same engine, same  │   │  VRF draw → Core NFT   │   │  room-code   │
+│  BSDY7Zus…    │   │ VRF match seed     │   │  transfer · players DB │   │  forwarder   │
+│  ER: delegate │   └────────────────────┘   └───────────┬────────────┘   └──────────────┘
+│  → capture ⚡ │                                        │
+│  → commit     │        ┌───────────────┐               ▼
+│  VRF: request │◄───────│ MagicBlock    │      ┌────────────────┐
+│  → callback   │        │ ER validator  │      │ MongoDB Atlas  │
+└───────────────┘        │ + VRF oracle  │      │ players·claims │
+                         └───────────────┘      └────────────────┘
+```
 
 ## Why on-chain (the MagicBlock story)
 
