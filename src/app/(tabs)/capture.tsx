@@ -19,9 +19,9 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { explorerTxUrl, logRunOnChain, UnfundedError } from '../../features/chain/claim'
 import { captureTileOnER, ZORR_PROGRAM } from '../../features/chain/er'
 import { darkMapStyle } from '../../features/capture/map-style'
-import { territoryOutline, tileKey, tilePolygon, tilesAround } from '../../features/capture/tiles'
+import { territoryOutline, tilePolygon } from '../../features/capture/tiles'
 import { useGame } from '../../features/game/game-store'
-import { rivalForTile } from '../../features/game/rivals'
+import { EMPIRE_DEG, empiresAround, rivalForTile } from '../../features/game/rivals'
 import { hitHaptic, winHaptic, failHaptic } from '../../features/core/haptics'
 import { submitStats } from '../../features/nft/nft'
 import { formatDuration, formatPace, RunSummary, tileAreaKm2, useRunSession } from '../../features/run/use-run-session'
@@ -136,7 +136,7 @@ export default function RunScreen() {
     if (fix && !centered.current) {
       centered.current = true
       mapRef.current?.animateToRegion(
-        { latitude: fix.lat, longitude: fix.lng, latitudeDelta: 0.006, longitudeDelta: 0.006 },
+        { latitude: fix.lat, longitude: fix.lng, latitudeDelta: 0.012, longitudeDelta: 0.012 },
         600,
       )
     }
@@ -199,20 +199,18 @@ export default function RunScreen() {
   const ownedOutline = useMemo(() => territoryOutline(ownedTiles), [ownedTiles])
   const glow = game.color + '26'
 
-  // Contested rival tiles near the player (recomputed only when you cross a tile).
-  const centerKey = fix ? tileKey(fix.lat, fix.lng) : null
-  const contested = useMemo(() => {
-    if (!fix) return [] as { key: string; color: string; clan: string }[]
-    return tilesAround(fix.lat, fix.lng, 4)
-      .map((key) => ({ key, clan: rivalForTile(key) }))
-      .filter((t) => t.clan && !game.hasTile(t.key))
-      .map((t) => ({ key: t.key, color: t.clan!.color, clan: t.clan!.name }))
+  // Rival empires near the player — big organic bordered regions (INTVL-style),
+  // recomputed only when you cross into a new empire cell.
+  const empireCellKey = fix ? `${Math.floor(fix.lat / EMPIRE_DEG)}:${Math.floor(fix.lng / EMPIRE_DEG)}` : null
+  const empires = useMemo(() => {
+    if (!fix) return [] as ReturnType<typeof empiresAround>
+    return empiresAround(fix.lat, fix.lng, 3)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [centerKey, game.tiles])
+  }, [empireCellKey])
 
   const recenter = useCallback(() => {
     if (!fix) return
-    mapRef.current?.animateToRegion({ latitude: fix.lat, longitude: fix.lng, latitudeDelta: 0.006, longitudeDelta: 0.006 }, 500)
+    mapRef.current?.animateToRegion({ latitude: fix.lat, longitude: fix.lng, latitudeDelta: 0.012, longitudeDelta: 0.012 }, 500)
   }, [fix])
 
   return (
@@ -231,20 +229,33 @@ export default function RunScreen() {
         toolbarEnabled={false}
         initialRegion={{ latitude: 17.4239, longitude: 78.4738, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
       >
-        {/* Rival ground — tap a patch to scout who holds it */}
-        {contested.map((t) => (
+        {/* Rival empires — organic regions with thick glowing borders (tap to scout) */}
+        {empires.map((e) => (
           <Polygon
-            key={`r${t.key}`}
-            coordinates={tilePolygon(t.key)}
-            strokeWidth={0}
-            fillColor={t.color + '2E'}
-            tappable
-            onPress={() => setToast({ kind: 'ok', msg: `${t.clan} holds this sector — run through it to steal (2× XP)` })}
+            key={`glow${e.id}`}
+            coordinates={e.coords}
+            strokeColor={e.clan.color + '3D'}
+            strokeWidth={9}
+            fillColor="transparent"
           />
         ))}
-        {/* Your territory — one smooth filled region, not a grid */}
+        {empires.map((e) => (
+          <Polygon
+            key={e.id}
+            coordinates={e.coords}
+            strokeColor={e.clan.color}
+            strokeWidth={3.5}
+            fillColor={e.clan.color + '12'}
+            tappable
+            onPress={() => setToast({ kind: 'ok', msg: `${e.clan.name} territory — run through it to steal ground (2× XP)` })}
+          />
+        ))}
+        {/* Your territory — one smooth glowing region, not a grid */}
         {ownedOutline.length >= 3 ? (
-          <Polygon coordinates={ownedOutline} strokeColor={game.color} strokeWidth={3} fillColor={game.color + '4D'} />
+          <>
+            <Polygon coordinates={ownedOutline} strokeColor={game.color + '4D'} strokeWidth={11} fillColor="transparent" />
+            <Polygon coordinates={ownedOutline} strokeColor={game.color} strokeWidth={4} fillColor={game.color + '3D'} />
+          </>
         ) : (
           ownedTiles.map((key) => (
             <Polygon key={key} coordinates={tilePolygon(key)} strokeWidth={0} fillColor={game.color + '66'} />
