@@ -31,8 +31,13 @@ export const colors = {
 } as const
 
 export const fonts = {
-  display: 'Audiowide', // gamey display font
-  mono: 'SpaceMono',
+  // Quest-cabinet type (shared with the author's Kickpact project):
+  // landing.ttf carries the big display voice, pixel.ttf the arcade
+  // instrument layer (labels, stats, clocks, eyebrows).
+  display: 'ZorrDisplay',
+  mono: 'ZorrPixel',
+  // Long case-sensitive data (wallet addresses, seeds) stays truly monospaced.
+  data: 'SpaceMono',
 } as const
 
 export const radius = {

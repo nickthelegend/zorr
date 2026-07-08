@@ -14,6 +14,9 @@ export default function Layout() {
   const [fontsLoaded] = useFonts({
     Audiowide: require('../../assets/fonts/Audiowide-Regular.ttf'),
     SpaceMono: require('../../assets/fonts/SpaceMono-Regular.ttf'),
+    // Quest-cabinet faces, shared from the author's Kickpact project.
+    ZorrPixel: require('../../assets/fonts/pixel.ttf'),
+    ZorrDisplay: require('../../assets/fonts/landing.ttf'),
   })
 
   useEffect(() => {

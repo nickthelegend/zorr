@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   name: { color: colors.text, fontSize: 22, fontFamily: fonts.display },
   levelLine: { fontSize: 11, fontFamily: fonts.mono, letterSpacing: 1.5, marginTop: 3 },
   rankRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  rank: { color: colors.textDim, fontSize: 12, fontFamily: fonts.mono },
+  rank: { color: colors.textDim, fontSize: 12, fontFamily: fonts.data },
   statsRow: { flexDirection: 'row', marginTop: 20, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16 },
   stat: { flex: 1, alignItems: 'center', gap: 4 },
   statValue: { color: colors.text, fontSize: 20, fontFamily: fonts.display },

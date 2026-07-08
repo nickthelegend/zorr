@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   poolText: { color: colors.territory, fontFamily: fonts.mono, fontSize: 13 },
   offlineRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   offlineText: { color: colors.gold, fontSize: 12 },
-  ownerLine: { color: colors.textFaint, fontSize: 12, fontFamily: fonts.mono, marginTop: 6 },
+  ownerLine: { color: colors.textFaint, fontSize: 12, fontFamily: fonts.data, marginTop: 6 },
   claimBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 15, borderRadius: radius.lg, marginTop: 14 },
   claimText: { color: colors.text, fontSize: 16, fontWeight: '800' },
   claimHint: { color: colors.textDim, fontSize: 12, textAlign: 'center', marginTop: 8 },
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   activePill: { position: 'absolute', top: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.territory, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   activeText: { color: '#04110C', fontSize: 10, fontWeight: '800' },
   explorer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 6 },
-  explorerText: { color: colors.textDim, fontSize: 11, fontFamily: fonts.mono },
+  explorerText: { color: colors.textDim, fontSize: 11, fontFamily: fonts.data },
   duelBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: colors.territory, paddingVertical: 16, borderRadius: radius.lg, marginTop: 16 },
   duelText: { color: '#04110C', fontSize: 16, fontWeight: '800' },
 })
