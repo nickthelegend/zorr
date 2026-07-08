@@ -67,3 +67,32 @@ export async function claimGuardian(owner: string): Promise<{ beast: OwnedBeast;
 export function assetExplorerUrl(asset: string) {
   return `https://explorer.solana.com/address/${asset}?cluster=devnet`
 }
+
+// ---- Real global leaderboard (relay player registry) ------------------------
+
+export type PlayerStats = {
+  owner: string
+  name: string
+  color: string
+  km2: number
+  tiles: number
+  xp: number
+  runs: number
+  wins: number
+}
+
+/** Report this device's live game stats to the relay (fire-and-forget safe). */
+export async function submitStats(stats: Omit<PlayerStats, 'owner'>): Promise<void> {
+  const owner = await getOwnerAddress()
+  await fetch(`${CLAIM_RELAY_URL}/stats`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ owner, ...stats }),
+  })
+}
+
+/** Every real player that has reported stats, ranked by the relay. */
+export async function fetchLeaderboard(): Promise<PlayerStats[]> {
+  const { players } = await get<{ players: PlayerStats[] }>('/leaderboard')
+  return players ?? []
+}

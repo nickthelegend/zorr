@@ -1,5 +1,5 @@
 import { router } from 'expo-router'
-import { Bell, Play, Shield, Swords } from 'lucide-react-native'
+import { HelpCircle, Play, Shield, Swords } from 'lucide-react-native'
 import { useEffect } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
@@ -13,13 +13,27 @@ import { fetchOwned, getOwnerAddress } from '../../features/nft/nft'
 import { tileAreaKm2 } from '../../features/run/use-run-session'
 import { colors, fonts, radius } from '../../theme'
 
-function LogCell({ value, label, delay, accent }: { value: string; label: string; delay: number; accent?: string }) {
+function LogCell({
+  value,
+  label,
+  delay,
+  accent,
+  to,
+}: {
+  value: string
+  label: string
+  delay: number
+  accent?: string
+  to: string
+}) {
   return (
     <Animated.View entering={FadeInDown.delay(delay)} style={styles.logCell}>
-      <GlowCard radiusSize={radius.lg} contentStyle={styles.logInner}>
-        <Text style={[styles.logValue, accent ? { color: accent } : null]}>{value}</Text>
-        <Text style={styles.logLabel}>{label}</Text>
-      </GlowCard>
+      <Press onPress={() => router.push(to as never)}>
+        <GlowCard radiusSize={radius.lg} contentStyle={styles.logInner}>
+          <Text style={[styles.logValue, accent ? { color: accent } : null]}>{value}</Text>
+          <Text style={styles.logLabel}>{label}</Text>
+        </GlowCard>
+      </Press>
     </Animated.View>
   )
 }
@@ -54,7 +68,7 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
+          <Press style={styles.headerLeft} onPress={() => router.push('/profile')}>
             <View style={[styles.avatar, { borderColor: game.color, shadowColor: game.color }]}>
               <Text style={[styles.avatarText, { color: game.color }]}>{game.name.charAt(0).toUpperCase()}</Text>
             </View>
@@ -62,33 +76,35 @@ export default function HomeScreen() {
               <Text style={styles.hi}>GM, {game.name}</Text>
               <Text style={styles.brand}>ZORR</Text>
             </View>
-          </View>
-          <Press onPress={() => {}}>
+          </Press>
+          <Press onPress={() => router.push('/settings')}>
             <View style={styles.bell}>
-              <Bell color={colors.textMuted} size={19} />
+              <HelpCircle color={colors.textMuted} size={19} />
             </View>
           </Press>
         </View>
 
-        {/* Command hero */}
+        {/* Command hero → the map */}
         <Animated.View entering={FadeInDown.delay(60)}>
-          <GlowCard tint={game.color} glow={game.color} contentStyle={styles.heroContent}>
-            <View style={styles.heroRow}>
-              <View style={styles.heroLeft}>
-                <View style={[styles.rankPill, { borderColor: rank.color + '66', backgroundColor: rank.color + '14' }]}>
-                  <Text style={[styles.rankText, { color: rank.color }]}>{rank.title}</Text>
+          <Press onPress={() => router.push('/capture')}>
+            <GlowCard tint={game.color} glow={game.color} contentStyle={styles.heroContent}>
+              <View style={styles.heroRow}>
+                <View style={styles.heroLeft}>
+                  <View style={[styles.rankPill, { borderColor: rank.color + '66', backgroundColor: rank.color + '14' }]}>
+                    <Text style={[styles.rankText, { color: rank.color }]}>{rank.title}</Text>
+                  </View>
+                  <Text style={styles.heroArea}>
+                    {areaKm2.toFixed(3)} <Text style={styles.heroUnit}>km²</Text>
+                  </Text>
+                  <Text style={styles.heroLabel}>TERRITORY HELD · {game.tiles.size} TILES</Text>
+                  <Text style={styles.xpLine}>
+                    {into}/{need} XP{promo ? `  ·  ${promo.title} AT LVL ${promo.minLevel}` : '  ·  TOP OF THE LADDER'}
+                  </Text>
                 </View>
-                <Text style={styles.heroArea}>
-                  {areaKm2.toFixed(3)} <Text style={styles.heroUnit}>km²</Text>
-                </Text>
-                <Text style={styles.heroLabel}>TERRITORY HELD · {game.tiles.size} TILES</Text>
-                <Text style={styles.xpLine}>
-                  {into}/{need} XP{promo ? `  ·  ${promo.title} AT LVL ${promo.minLevel}` : '  ·  TOP OF THE LADDER'}
-                </Text>
+                <LevelRing progress={into / need} level={level} color={rank.color} />
               </View>
-              <LevelRing progress={into / need} level={level} color={rank.color} />
-            </View>
-          </GlowCard>
+            </GlowCard>
+          </Press>
         </Animated.View>
 
         {/* Start run CTA */}
@@ -117,12 +133,12 @@ export default function HomeScreen() {
         {/* Mission log — lifetime metrics */}
         <Eyebrow style={styles.section}>MISSION LOG</Eyebrow>
         <View style={styles.logGrid}>
-          <LogCell value={`${s.runs}`} label="RUNS" delay={220} />
-          <LogCell value={formatKm(s.distanceKm)} label="KM COVERED" delay={250} />
-          <LogCell value={formatKm(s.longestRunKm)} label="LONGEST KM" delay={280} />
-          <LogCell value={formatWinRate(s)} label="DUEL WIN %" accent={colors.territory} delay={310} />
-          <LogCell value={`${s.duelsWon}–${s.duelsLost}`} label="DUEL RECORD" delay={340} />
-          <LogCell value={`${game.xp}`} label="$ZORR" accent={colors.gold} delay={370} />
+          <LogCell value={`${s.runs}`} label="RUNS" delay={220} to="/capture" />
+          <LogCell value={formatKm(s.distanceKm)} label="KM COVERED" delay={250} to="/capture" />
+          <LogCell value={formatKm(s.longestRunKm)} label="LONGEST KM" delay={280} to="/capture" />
+          <LogCell value={formatWinRate(s)} label="DUEL WIN %" accent={colors.territory} delay={310} to="/battle" />
+          <LogCell value={`${s.duelsWon}–${s.duelsLost}`} label="DUEL RECORD" delay={340} to="/battle" />
+          <LogCell value={`${game.xp}`} label="$ZORR" accent={colors.gold} delay={370} to="/wallet" />
         </View>
       </ScrollView>
     </SafeAreaView>

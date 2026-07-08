@@ -34,6 +34,31 @@ const claimsPath = out('claims.json')
 const claims = fs.existsSync(claimsPath) ? JSON.parse(fs.readFileSync(claimsPath, 'utf8')) : {}
 const saveClaims = () => fs.writeFileSync(claimsPath, JSON.stringify(claims, null, 2))
 
+// Real player registry — devices POST their live game stats; the leaderboard is
+// built from every player that has ever reported. No sample data anywhere.
+const playersPath = out('players.json')
+const players = fs.existsSync(playersPath) ? JSON.parse(fs.readFileSync(playersPath, 'utf8')) : {}
+const savePlayers = () => fs.writeFileSync(playersPath, JSON.stringify(players, null, 2))
+
+const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0)
+function upsertPlayer(body) {
+  const owner = String(body.owner || '')
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(owner)) return null // base58 pubkey
+  players[owner] = {
+    owner,
+    name: String(body.name || 'Explorer').slice(0, 24),
+    color: /^#[0-9A-Fa-f]{6}$/.test(String(body.color)) ? body.color : '#7C3AED',
+    km2: Math.max(0, num(body.km2)),
+    tiles: Math.max(0, Math.floor(num(body.tiles))),
+    xp: Math.max(0, Math.floor(num(body.xp))),
+    runs: Math.max(0, Math.floor(num(body.runs))),
+    wins: Math.max(0, Math.floor(num(body.wins))),
+    updatedAt: Date.now(),
+  }
+  savePlayers()
+  return players[owner]
+}
+
 // ---- umi (transfer) ----
 const umi = createUmi(RPC).use(mplCore())
 umi.use(keypairIdentity(umi.eddsa.createKeypairFromSecretKey(secret)))
@@ -119,6 +144,26 @@ http
       const owner = url.searchParams.get('owner')
       const beasts = owner ? manifest.filter((m) => claims[m.asset]?.owner === owner) : []
       return send(res, 200, { owner, beasts })
+    }
+    if (req.method === 'GET' && url.pathname === '/leaderboard') {
+      const board = Object.values(players)
+        .sort((a, b) => b.km2 - a.km2 || b.xp - a.xp)
+        .slice(0, 100)
+      return send(res, 200, { players: board })
+    }
+    if (req.method === 'POST' && url.pathname === '/stats') {
+      let raw = ''
+      req.on('data', (c) => (raw += c))
+      req.on('end', () => {
+        try {
+          const p = upsertPlayer(JSON.parse(raw || '{}'))
+          if (!p) return send(res, 400, { error: 'invalid owner' })
+          send(res, 200, { ok: true, player: p })
+        } catch {
+          send(res, 400, { error: 'bad json' })
+        }
+      })
+      return
     }
     if (req.method === 'POST' && url.pathname === '/claim') {
       let raw = ''

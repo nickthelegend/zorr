@@ -3,7 +3,7 @@ import { router } from 'expo-router'
 import * as SecureStore from 'expo-secure-store'
 import { Award, Flame, Footprints, HelpCircle, LogOut, Mail, MapPin, Route, Shield, Swords } from 'lucide-react-native'
 import { ReactNode, useEffect, useState } from 'react'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
@@ -89,10 +89,13 @@ export default function ProfileScreen() {
                 <Text style={[styles.levelLine, { color: rank.color }]}>
                   {rank.title} · LVL {level}
                 </Text>
-                <View style={styles.rankRow}>
+                <TouchableOpacity
+                  style={styles.rankRow}
+                  onPress={() => addr && Linking.openURL(`https://explorer.solana.com/address/${addr}?cluster=devnet`)}
+                >
                   <Shield color={colors.territory} size={13} />
-                  <Text style={styles.rank}>{short(addr)}</Text>
-                </View>
+                  <Text style={styles.rank}>{short(addr)} ↗</Text>
+                </TouchableOpacity>
                 <View style={styles.rankRow}>
                   <Mail color={email ? colors.primary : colors.textFaint} size={13} />
                   <Text style={[styles.rank, !email && { color: colors.textFaint }]}>

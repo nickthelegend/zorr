@@ -1,22 +1,19 @@
-// Weekly territory ranking. Rival runners are sample data; your row is real
-// (your captured km² from the game store), inserted and ranked live.
-export type Runner = { name: string; color: string; km2: number; you?: boolean }
+// Weekly territory ranking — REAL players only. Every row is a device that
+// reported its live game stats to the relay (POST /stats); your row is merged
+// from local state so it's correct even before the next sync.
+export type Runner = {
+  owner?: string
+  name: string
+  color: string
+  km2: number
+  you?: boolean
+}
 
-const RIVAL_RUNNERS: Runner[] = [
-  { name: 'NightStrider', color: '#F43F5E', km2: 9.12 },
-  { name: 'Vanta', color: '#3B82F6', km2: 7.84 },
-  { name: 'Kestrel', color: '#FBBF24', km2: 6.55 },
-  { name: 'Orbit', color: '#22D3A6', km2: 5.98 },
-  { name: 'Halcyon', color: '#EC4899', km2: 4.73 },
-  { name: 'Rumble', color: '#7C3AED', km2: 3.9 },
-  { name: 'Fenwick', color: '#3B82F6', km2: 3.12 },
-  { name: 'Sable', color: '#F43F5E', km2: 2.44 },
-  { name: 'Pixel', color: '#FBBF24', km2: 1.78 },
-  { name: 'Dune', color: '#22D3A6', km2: 1.2 },
-  { name: 'Echo', color: '#EC4899', km2: 0.64 },
-  { name: 'Wisp', color: '#7C3AED', km2: 0.21 },
-]
-
-export function buildLeaderboard(you: { name: string; color: string; km2: number }): Runner[] {
-  return [...RIVAL_RUNNERS, { ...you, you: true }].sort((a, b) => b.km2 - a.km2)
+/**
+ * Merge your live local row with the relay's player list (deduped by owner —
+ * the relay copy of you is replaced by fresher local numbers) and rank by km².
+ */
+export function rankBoard(you: Runner & { owner?: string }, others: Runner[]): Runner[] {
+  const rest = others.filter((o) => !you.owner || o.owner !== you.owner)
+  return [...rest, { ...you, you: true }].sort((a, b) => b.km2 - a.km2)
 }

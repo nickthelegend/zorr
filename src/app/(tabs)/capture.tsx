@@ -1,6 +1,6 @@
 import * as Location from 'expo-location'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Activity, Check, ExternalLink, Play, Square, X } from 'lucide-react-native'
+import { Activity, Check, ExternalLink, LocateFixed, Play, Square, X } from 'lucide-react-native'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import MapView, { Polygon, Polyline, PROVIDER_GOOGLE } from 'react-native-maps'
@@ -22,6 +22,7 @@ import { darkMapStyle } from '../../features/capture/map-style'
 import { territoryOutline, tileKey, tilePolygon, tilesAround } from '../../features/capture/tiles'
 import { useGame } from '../../features/game/game-store'
 import { rivalForTile } from '../../features/game/rivals'
+import { submitStats } from '../../features/nft/nft'
 import { formatDuration, formatPace, RunSummary, tileAreaKm2, useRunSession } from '../../features/run/use-run-session'
 import { colors, fonts, radius } from '../../theme'
 
@@ -143,6 +144,16 @@ export default function RunScreen() {
     const s = run.stop()
     game.recordRun(s.distanceKm)
     setSummary(s)
+    // Publish fresh, real stats to the global leaderboard (fire-and-forget).
+    submitStats({
+      name: game.name,
+      color: game.color,
+      km2: game.tiles.size * tileAreaKm2(s.path[0]?.latitude ?? 17.4239),
+      tiles: game.tiles.size,
+      xp: game.xp,
+      runs: game.stats.runs + 1,
+      wins: game.stats.duelsWon,
+    }).catch(() => {})
   }, [run, game])
 
   const logRun = useCallback(async (s: RunSummary) => {
@@ -182,13 +193,18 @@ export default function RunScreen() {
   // Contested rival tiles near the player (recomputed only when you cross a tile).
   const centerKey = fix ? tileKey(fix.lat, fix.lng) : null
   const contested = useMemo(() => {
-    if (!fix) return [] as { key: string; color: string }[]
+    if (!fix) return [] as { key: string; color: string; clan: string }[]
     return tilesAround(fix.lat, fix.lng, 4)
       .map((key) => ({ key, clan: rivalForTile(key) }))
       .filter((t) => t.clan && !game.hasTile(t.key))
-      .map((t) => ({ key: t.key, color: t.clan!.color }))
+      .map((t) => ({ key: t.key, color: t.clan!.color, clan: t.clan!.name }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [centerKey, game.tiles])
+
+  const recenter = useCallback(() => {
+    if (!fix) return
+    mapRef.current?.animateToRegion({ latitude: fix.lat, longitude: fix.lng, latitudeDelta: 0.006, longitudeDelta: 0.006 }, 500)
+  }, [fix])
 
   return (
     <View style={styles.container}>
@@ -206,9 +222,16 @@ export default function RunScreen() {
         toolbarEnabled={false}
         initialRegion={{ latitude: 17.4239, longitude: 78.4738, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
       >
-        {/* Rival ground — soft colored patches (targets to steal) */}
+        {/* Rival ground — tap a patch to scout who holds it */}
         {contested.map((t) => (
-          <Polygon key={`r${t.key}`} coordinates={tilePolygon(t.key)} strokeWidth={0} fillColor={t.color + '2E'} />
+          <Polygon
+            key={`r${t.key}`}
+            coordinates={tilePolygon(t.key)}
+            strokeWidth={0}
+            fillColor={t.color + '2E'}
+            tappable
+            onPress={() => setToast({ kind: 'ok', msg: `${t.clan} holds this sector — run through it to steal (2× XP)` })}
+          />
         ))}
         {/* Your territory — one smooth filled region, not a grid */}
         {ownedOutline.length >= 3 ? (
@@ -245,6 +268,14 @@ export default function RunScreen() {
         </Animated.View>
 
         <View style={{ flex: 1 }} pointerEvents="none" />
+
+        {fix ? (
+          <View style={styles.fabRow} pointerEvents="box-none">
+            <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={recenter}>
+              <LocateFixed color={colors.text} size={19} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {toast ? (
           <Animated.View entering={FadeInUp} exiting={FadeOut} style={styles.toastWrap}>
@@ -414,6 +445,17 @@ const styles = StyleSheet.create({
   pulseWrap: { width: 12, height: 12, alignItems: 'center', justifyContent: 'center' },
   pulseRing: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: colors.enemy },
   pulseCore: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.enemy },
+  fabRow: { alignItems: 'flex-end', marginBottom: 12 },
+  fab: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(10,10,16,0.92)',
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   toastWrap: { marginBottom: 10 },
   toast: {
     flexDirection: 'row',

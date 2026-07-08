@@ -8,8 +8,9 @@ import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpac
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { GhostBtn, GlowCard } from '../../components/ui'
+import { GhostBtn, GlowCard, Press } from '../../components/ui'
 import { getSignerAddress } from '../../features/chain/claim'
+import { fetchOwned, getOwnerAddress } from '../../features/nft/nft'
 import { DEVNET_RPC, useDevnetBalance } from '../../features/wallet/use-devnet-balance'
 import { useSolanaAccount } from '../../features/wallet/use-solana-account'
 import { colors, fonts, radius } from '../../theme'
@@ -25,9 +26,15 @@ export default function WalletScreen() {
   const { data: balance, isLoading, refetch, isRefetching } = useDevnetBalance(addr)
   const privy = useSolanaAccount()
   const [creating, setCreating] = useState(false)
+  const [beastCount, setBeastCount] = useState<number | null>(null)
 
   useEffect(() => {
     getSignerAddress().then(setAddr).catch(() => {})
+    // Real NFT holdings from the claim relay.
+    getOwnerAddress()
+      .then((o) => fetchOwned(o))
+      .then((b) => setBeastCount(b.length))
+      .catch(() => setBeastCount(null))
   }, [])
 
   const airdrop = useMutation({
@@ -164,6 +171,18 @@ export default function WalletScreen() {
               </View>
               <Text style={styles.assetAmount}>{(balance ?? 0).toFixed(4)}</Text>
             </View>
+            <Press onPress={() => router.push('/guardians')}>
+              <View style={[styles.assetRow, styles.assetRowDivider]}>
+                <View style={[styles.assetBadge, { borderColor: colors.territory }]}>
+                  <Text style={[styles.assetSymbol, { color: colors.territory }]}>⚔️</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.assetName}>Zorr Beasts</Text>
+                  <Text style={styles.assetSym}>METAPLEX CORE · GENESIS</Text>
+                </View>
+                <Text style={styles.assetAmount}>{beastCount === null ? '—' : `× ${beastCount}`}</Text>
+              </View>
+            </Press>
           </GlowCard>
         </Animated.View>
       </ScrollView>
@@ -208,6 +227,7 @@ const styles = StyleSheet.create({
   err: { color: colors.enemy, fontSize: 12, marginTop: 10 },
   ok: { color: colors.territory, fontSize: 12, marginTop: 10 },
   assetRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  assetRowDivider: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.hairline },
   assetBadge: {
     width: 40,
     height: 40,

@@ -28,6 +28,8 @@ import { useSocket } from '../features/battle/use-socket'
 import { requestVrfSeed } from '../features/chain/vrf'
 import { hexSeed, scopeFromString } from '../features/chain/vrf-seed'
 import { useGame } from '../features/game/game-store'
+import { submitStats } from '../features/nft/nft'
+import { tileAreaKm2 } from '../features/run/use-run-session'
 import { colors, fonts, radius } from '../theme'
 
 type Mode = 'bot' | 'bt' | 'online'
@@ -277,6 +279,16 @@ export default function BattleArena() {
       const won = state.winner === mySideRef.current
       game.award(won ? WIN_XP : LOSE_XP)
       game.recordDuel(won)
+      // Publish the fresh record to the global leaderboard (fire-and-forget).
+      submitStats({
+        name: game.name,
+        color: game.color,
+        km2: game.tiles.size * tileAreaKm2(17.4239),
+        tiles: game.tiles.size,
+        xp: game.xp + (won ? WIN_XP : LOSE_XP),
+        runs: game.stats.runs,
+        wins: game.stats.duelsWon + (won ? 1 : 0),
+      }).catch(() => {})
       setPhase('result')
     }
   }, [state?.over, state?.winner, game])
