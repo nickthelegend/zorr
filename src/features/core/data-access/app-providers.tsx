@@ -1,4 +1,5 @@
 import { PrivyProvider } from '@privy-io/expo'
+import { PrivyElements } from '@privy-io/expo/ui'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AppIdentity, createSolanaDevnet, MobileWalletProvider } from '@wallet-ui/react-native-kit'
 import { HeroUINativeProvider } from 'heroui-native/provider'
@@ -26,6 +27,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
             <MobileWalletProvider cluster={cluster} identity={identity}>
               <GameProvider>{children}</GameProvider>
             </MobileWalletProvider>
+            {/* Privy's official modal UI (login, MFA) — the "traditional" Privy experience. */}
+            <PrivyElements config={{ appearance: { colorScheme: 'dark', accentColor: '#7C3AED' } }} />
           </PrivyProvider>
         </QueryClientProvider>
       </HeroUINativeProvider>

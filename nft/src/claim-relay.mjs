@@ -18,10 +18,22 @@ import anchorPkg from '@coral-xyz/anchor'
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'
 import { fetchCollection, mplCore, transferV1 } from '@metaplex-foundation/mpl-core'
 import { keypairIdentity, publicKey } from '@metaplex-foundation/umi'
+import { MongoClient } from 'mongodb'
 
 const { AnchorProvider, Program, Wallet, web3 } = anchorPkg
 const here = path.dirname(fileURLToPath(import.meta.url))
 const PORT = Number(process.env.PORT) || 8790
+
+// Load nft/.env (MONGODB_URI etc.) without a dotenv dependency.
+try {
+  const envPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '.env')
+  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+    const m = line.match(/^([A-Z_]+)\s*=\s*"?([^"\n]*)"?\s*$/)
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2]
+  }
+} catch {
+  /* no .env — Mongo mirror disabled */
+}
 const DEFAULT_QUEUE = new web3.PublicKey('Cuj97ggrhhidhbu39TijNVqE74xvKJ69gDervRUXAxGh')
 const RPC = 'https://api.devnet.solana.com'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -40,6 +52,50 @@ const playersPath = out('players.json')
 const players = fs.existsSync(playersPath) ? JSON.parse(fs.readFileSync(playersPath, 'utf8')) : {}
 const savePlayers = () => fs.writeFileSync(playersPath, JSON.stringify(players, null, 2))
 
+// ---- MongoDB mirror (off-chain durable store) -------------------------------
+// The relay's source of truth stays the in-memory maps + JSON files (zero-dep
+// fallback), but everything is hydrated from and mirrored to MongoDB Atlas so
+// claims, players and the leaderboard survive across hosts. URI via nft/.env.
+let mongo = null // { players, claims } collections when connected
+
+async function initMongo() {
+  const uri = process.env.MONGODB_URI
+  if (!uri) return console.log('mongo: no MONGODB_URI — running on JSON files only')
+  try {
+    const client = new MongoClient(uri, { serverSelectionTimeoutMS: 7000 })
+    await client.connect()
+    const db = client.db('zorr')
+    const cols = { players: db.collection('players'), claims: db.collection('claims') }
+    // Hydrate: newest wins between Mongo and the local JSON snapshot.
+    for (const doc of await cols.players.find().toArray()) {
+      const { _id, ...p } = doc
+      if (!players[p.owner] || (p.updatedAt ?? 0) > (players[p.owner].updatedAt ?? 0)) players[p.owner] = p
+    }
+    for (const doc of await cols.claims.find().toArray()) {
+      const { _id, ...c } = doc
+      if (!claims[c.asset]) claims[c.asset] = c.data
+    }
+    savePlayers()
+    saveClaims()
+    // Push anything Mongo is missing (e.g. rows created while offline).
+    for (const p of Object.values(players)) await cols.players.updateOne({ owner: p.owner }, { $set: p }, { upsert: true })
+    for (const [asset, data] of Object.entries(claims)) await cols.claims.updateOne({ asset }, { $set: { asset, data } }, { upsert: true })
+    mongo = cols
+    console.log(`mongo: connected — ${Object.keys(players).length} players, ${Object.keys(claims).length} claims synced`)
+  } catch (e) {
+    console.log('mongo: unavailable, JSON fallback only —', (e.message || e).slice(0, 120))
+  }
+}
+
+const mirrorPlayer = (owner) => {
+  if (mongo && players[owner]) mongo.players.updateOne({ owner }, { $set: players[owner] }, { upsert: true }).catch(() => {})
+}
+const mirrorClaim = (asset) => {
+  if (!mongo) return
+  if (claims[asset]) mongo.claims.updateOne({ asset }, { $set: { asset, data: claims[asset] } }, { upsert: true }).catch(() => {})
+  else mongo.claims.deleteOne({ asset }).catch(() => {})
+}
+
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0)
 function upsertPlayer(body) {
   const owner = String(body.owner || '')
@@ -56,6 +112,7 @@ function upsertPlayer(body) {
     updatedAt: Date.now(),
   }
   savePlayers()
+  mirrorPlayer(owner)
   return players[owner]
 }
 
@@ -111,16 +168,19 @@ async function claim(owner) {
     // Reserve before transfer (prevents a concurrent double-claim), roll back on failure.
     claims[beast.asset] = { owner, at: Date.now(), pending: true }
     saveClaims()
+    mirrorClaim(beast.asset)
     try {
       await transferV1(umi, { asset: publicKey(beast.asset), collection: publicKey(coll.address), newOwner: ownerPk }).sendAndConfirm(umi)
       claims[beast.asset] = { owner, at: Date.now() }
       saveClaims()
+      mirrorClaim(beast.asset)
       console.log(`🎁 claimed ${beast.name} [${beast.rarity}] → ${owner}${vrf ? ' (VRF)' : ''}`)
       return { status: 200, body: { beast: { ...beast }, vrf, seedHex } }
     } catch (e) {
       // Quarantine un-transferable assets so they're skipped next draw.
       claims[beast.asset] = { owner: null, quarantined: true, reason: (e.message || String(e)).slice(0, 100) }
       saveClaims()
+      mirrorClaim(beast.asset)
       console.log(`⚠️  quarantined ${beast.name}: ${(e.message || e).slice(0, 80)}`)
     }
   }
@@ -136,7 +196,7 @@ http
   .createServer((req, res) => {
     if (req.method === 'OPTIONS') return send(res, 204, {})
     const url = new URL(req.url, 'http://x')
-    if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { ok: true })
+    if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { ok: true, mongo: !!mongo })
     if (req.method === 'GET' && url.pathname === '/pool') {
       return send(res, 200, { total: manifest.length, remaining: unclaimed().length, claimed: manifest.length - unclaimed().length })
     }
@@ -187,6 +247,7 @@ http
     }
     send(res, 404, { error: 'not found' })
   })
-  .listen(PORT, () => {
+  .listen(PORT, async () => {
+    await initMongo()
     console.log(`Zorr Beasts claim relay on :${PORT}  ·  pool ${unclaimed().length}/${manifest.length} unclaimed  ·  collection ${coll.address}`)
   })

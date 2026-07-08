@@ -1,8 +1,9 @@
-import { useCreateGuestAccount, useEmbeddedSolanaWallet, useLoginWithEmail, usePrivy } from '@privy-io/expo'
+import { useCreateGuestAccount, useEmbeddedSolanaWallet, usePrivy } from '@privy-io/expo'
+import { useLogin } from '@privy-io/expo/ui'
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
 import * as SecureStore from 'expo-secure-store'
-import { ArrowRight, Check, Mail, ShieldCheck, Sparkles } from 'lucide-react-native'
+import { ArrowRight, Check, Fingerprint, Sparkles } from 'lucide-react-native'
 import LottieView from 'lottie-react-native'
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -23,18 +24,16 @@ import { GradientBorderCard } from '../components/gradient-border-card'
 import { EXPLORER_COLORS, useGame } from '../features/game/game-store'
 import { colors, fonts, radius } from '../theme'
 
-type Step = 'email' | 'code' | 'identity'
+type Step = 'welcome' | 'identity'
 
 export default function LoginScreen() {
-  const { sendCode, loginWithCode } = useLoginWithEmail()
   const { user } = usePrivy()
+  const { login } = useLogin() // Privy's official login modal
   const solana = useEmbeddedSolanaWallet()
   const { create: createGuestAccount } = useCreateGuestAccount()
   const game = useGame()
 
-  const [step, setStep] = useState<Step>('email')
-  const [email, setEmail] = useState('')
-  const [code, setCode] = useState('')
+  const [step, setStep] = useState<Step>('welcome')
   const [name, setName] = useState(game.name === 'Explorer' ? '' : game.name)
   const [color, setColor] = useState<string>(game.color)
   const [busy, setBusy] = useState(false)
@@ -49,29 +48,18 @@ export default function LoginScreen() {
     }
   }, [user])
 
-  const handleSendCode = async () => {
+  // Open the traditional Privy modal (email OTP handled entirely by Privy UI).
+  const connectWithPrivy = async () => {
     flowStarted.current = true
     setError(null)
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError('Enter a valid email address')
     setBusy(true)
     try {
-      await sendCode({ email })
-      setStep('code')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to send code')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const handleVerify = async () => {
-    setError(null)
-    setBusy(true)
-    try {
-      await loginWithCode({ code, email })
+      await login({ loginMethods: ['email'] })
       setStep('identity')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Invalid code')
+      const msg = e instanceof Error ? e.message : String(e)
+      // Closing the modal isn't an error worth shouting about.
+      if (!/closed|cancel/i.test(msg)) setError(msg)
     } finally {
       setBusy(false)
     }
@@ -152,47 +140,15 @@ export default function LoginScreen() {
 
             <Animated.View entering={FadeInUp.delay(120)} key={step}>
               <GradientBorderCard>
-                {step === 'email' ? (
+                {step === 'welcome' ? (
                   <StepBody
-                    icon={<Mail color={colors.primary} size={26} />}
-                    title="Sign in with email"
-                    sub="We spin up a Solana wallet for you — no seed phrase to manage."
+                    icon={<Fingerprint color={colors.primary} size={26} />}
+                    title="Connect to play"
+                    sub="Privy signs you in and spins up a self-custodial Solana wallet — no seed phrase."
                   >
-                    <TextInput
-                      style={styles.input}
-                      placeholder="you@email.com"
-                      placeholderTextColor={colors.textFaint}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      value={email}
-                      onChangeText={setEmail}
-                      editable={!busy}
-                    />
-                    <PrimaryButton label="Send code" busy={busy} onPress={handleSendCode} />
+                    <PrimaryButton label="Connect with Privy" busy={busy} onPress={connectWithPrivy} />
                     <TouchableOpacity onPress={playAsGuest} disabled={busy}>
                       <Text style={styles.link}>Skip — play as guest</Text>
-                    </TouchableOpacity>
-                  </StepBody>
-                ) : step === 'code' ? (
-                  <StepBody
-                    icon={<ShieldCheck color={colors.territory} size={26} />}
-                    title="Enter the code"
-                    sub={`Sent to ${email}`}
-                  >
-                    <TextInput
-                      style={[styles.input, styles.codeInput]}
-                      placeholder="000000"
-                      placeholderTextColor={colors.textFaint}
-                      keyboardType="number-pad"
-                      maxLength={6}
-                      value={code}
-                      onChangeText={setCode}
-                      editable={!busy}
-                    />
-                    <PrimaryButton label="Verify" busy={busy} onPress={handleVerify} />
-                    <TouchableOpacity onPress={() => setStep('email')} disabled={busy}>
-                      <Text style={styles.link}>Use a different email</Text>
                     </TouchableOpacity>
                   </StepBody>
                 ) : (
@@ -310,7 +266,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
   },
-  codeInput: { textAlign: 'center', letterSpacing: 8, fontFamily: fonts.mono, fontSize: 22 },
   swatchRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18 },
   swatch: {
     width: 42,
