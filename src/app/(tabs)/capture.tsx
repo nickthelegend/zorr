@@ -195,6 +195,9 @@ export default function RunScreen() {
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
+        // The LATEST Google renderer ignores customMapStyle (it only honors
+        // cloud map IDs) — pin LEGACY so the neon-cartography style applies.
+        googleRenderer="LEGACY"
         style={StyleSheet.absoluteFill}
         customMapStyle={darkMapStyle}
         showsUserLocation
