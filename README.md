@@ -57,6 +57,11 @@ The hard part of a serverless PvP game is that both phones must agree on the out
 - **Run sessions** with distance/duration/pace + km² territory
 - **Rival clans** — contested tiles you steal by running
 - **Guardian duels** — NFT-monster battles vs AI, Bluetooth, or online (room code)
+- **Lifetime metrics** — runs, km covered, longest run, duel record + win rate, summons; a
+  cartography **rank ladder** (Drifter → Scout → Pathfinder → Cartographer → Warden → Overseer →
+  Sovereign) and 12 achievements
+- **Signature HUD** — a compass-rose level ring (60 bearing ticks, progress as a sweep from due
+  north) on a neon-cartography map: near-black board, violet arterials, emerald territory glow
 - **Weekly leaderboard** (your rank is live from your captured km²)
 - **XP, levels, combos, achievements, player identity** (name + color)
 - **Real on-chain run logging** (Solana devnet, verified)
@@ -117,4 +122,13 @@ software can't self-check: the Bluetooth radio pairing between two physical phon
 public relay host for online play (run `npm run relay` and set `EXPO_PUBLIC_RELAY_URL`) — both are
 deployment/QA steps, not code gaps.
 
-`tsc` 0 errors · eslint 0 warnings · 49/49 unit tests · devnet + VRF + socket integration green · full Metro bundle.
+**Verified live on the Android emulator** (dev-client + Metro): the neon-cartography map with GPS
+lock + territory hull + rival patches (this run caught and fixed a real bug — react-native-maps'
+LATEST renderer ignores `customMapStyle`, so the map pins `googleRenderer="LEGACY"`), a full
+Guardian duel vs AI played to **Victory (+300 XP)**, and the Mission Log updating from it
+(record 1–0, win rate 100%, $ZORR 250→550, compass ring sweeping 300/500). **Privy verified
+on-device**: the SDK initializes with our App ID/Client ID (wallet tab shows live guest status +
+sign-in path; the embedded wallet card surfaces the address once email-authed). The email OTP
+round-trip itself needs a human inbox — that's the one Privy step outside headless reach.
+
+`tsc` 0 errors · eslint 0 warnings · 61/61 unit tests · devnet + VRF + socket integration green · full Metro bundle.
