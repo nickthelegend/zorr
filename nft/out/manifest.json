@@ -1,0 +1,482 @@
+[
+  {
+    "id": 0,
+    "seed": "zorr-genesis-0005",
+    "name": "Frost Drake",
+    "element": "fire",
+    "rarity": "Common",
+    "asset": "Ed4H9Qxb3vN1Z56mudKkT6YeWBBGE9Chrj11b2KuBtSR",
+    "uri": "https://gateway.irys.xyz/6ut7u3J1kgsCssorH1QN2essMpwZkYcyKZfpNc7HUgUd",
+    "image": "https://gateway.irys.xyz/GiTssz9FkedvTHDhwHdzu4xLnce6E2JnGANZzwfvzQAo"
+  },
+  {
+    "id": 1,
+    "seed": "zorr-genesis-0003",
+    "name": "Storm Leviathan",
+    "element": "water",
+    "rarity": "Rare",
+    "asset": "Bwc8RMSHFaDJpQMGhJ66YJCc5PbSNUhNPFpK5Pvdbb1n",
+    "uri": "https://gateway.irys.xyz/54YVNmdUEXNQ1GktS6DSanhdurFeLddPJ4heAT6pTh4X",
+    "image": "https://gateway.irys.xyz/BJZtWTVoe7haWzr8dWdrbYTCtZ1bKfb6CgvwT1aP6e5g"
+  },
+  {
+    "id": 2,
+    "seed": "zorr-genesis-0009",
+    "name": "Ancient Behemoth",
+    "element": "earth",
+    "rarity": "Epic",
+    "asset": "EdPwLBcqTSUpConoetUcTCPsinxwkbdGRFFxd28MJcfd",
+    "uri": "https://gateway.irys.xyz/3u2PYYdgECSezJm3LBApjuqWt37DMpmMQJ1umicihyXF",
+    "image": "https://gateway.irys.xyz/GG5DSazEzAEs8HeRdCs1chN8xmn3R1wRWwDeSPFpfu6E"
+  },
+  {
+    "id": 3,
+    "seed": "zorr-genesis-0001",
+    "name": "Iron Griffin",
+    "element": "wind",
+    "rarity": "Rare",
+    "asset": "AFQNWAU1GRy6aHa6HmBeow1avswo9hS5MXmrCfF9tfym",
+    "uri": "https://gateway.irys.xyz/ErtigSNTQ81N7Cri1cqrghtrRsSNPshtnvAbBaUy6Dm",
+    "image": "https://gateway.irys.xyz/5hx6WTQgQgRw7pnvqBSv2Ns8mdpmz7pkTxG3QnaBkQPj"
+  },
+  {
+    "id": 4,
+    "seed": "zorr-genesis-0000",
+    "name": "Blazing Lumen",
+    "element": "light",
+    "rarity": "Epic",
+    "asset": "5AFXa8F5BD8WGjzeKiBD4MNB93D5AoQxyk31Px5eobwZ",
+    "uri": "https://gateway.irys.xyz/AvMmgRLRtjUq16QwMymT8XEgQNPNqwfUoeEnWW4t9s4c",
+    "image": "https://gateway.irys.xyz/6h9HfUSn8L1BvEausVjgn31aPqG6LdJrozApPfVt6Wgk"
+  },
+  {
+    "id": 5,
+    "seed": "zorr-genesis-0011",
+    "name": "Astral Reaper",
+    "element": "dark",
+    "rarity": "Common",
+    "asset": "J49qxW1B9jKkTtvpJ2Tq5NtTRbSjXLqUHqD1tEhh7B1P",
+    "uri": "https://gateway.irys.xyz/EYyr71SGQ7kbs5ostzaJYZRtW28bvk4xZhjst5U6iLXD",
+    "image": "https://gateway.irys.xyz/F1WBBPw1aZFQWrmMhRvBi6f2JikkqPQNPF49uFY7x7d3"
+  },
+  {
+    "id": 6,
+    "seed": "zorr-genesis-0006",
+    "name": "Ancient Drake",
+    "element": "fire",
+    "rarity": "Epic",
+    "asset": "HAf4mi67Rn5aQubo2aqyCtq5e29H9jNDWbB5pZC67qLY",
+    "uri": "https://gateway.irys.xyz/CyAJKeJwNtbjZ1yL2ux3vYY7PhHhZ4o9cbcTQcPQGgh4",
+    "image": "https://gateway.irys.xyz/ATGB5GEkpSzanRDgKN45fqZATMTsumfTjrf8jPRRhMyB"
+  },
+  {
+    "id": 7,
+    "seed": "zorr-genesis-0004",
+    "name": "Iron Leviathan",
+    "element": "water",
+    "rarity": "Rare",
+    "asset": "DFp2bqTSGLau2FLz58GVLGVp2jFrXQYFxaDXqceKng7S",
+    "uri": "https://gateway.irys.xyz/6p5ebMZtHyAv4vVjA1Qqutur7d5YfUS7tnDJNZbZiRuQ",
+    "image": "https://gateway.irys.xyz/BvSAKB46AehMZp1TSAhLYAsxzxHR3FQZpVwNvdQdCCeP"
+  },
+  {
+    "id": 8,
+    "seed": "zorr-genesis-0018",
+    "name": "Molten Behemoth",
+    "element": "earth",
+    "rarity": "Common",
+    "asset": "Ffsk6hPMoMw71n5omtez9Z7RM2TVWHoEEE4ANN2aXrDM",
+    "uri": "https://gateway.irys.xyz/BQ14EcSceKfjRBmiQdL434MKX4xhPw5RqFGhwantYB7e",
+    "image": "https://gateway.irys.xyz/5wRNZ6GbTaQPQzmZwZy1JVnyHMCgxDQAB7vhLSjMQTSU"
+  },
+  {
+    "id": 9,
+    "seed": "zorr-genesis-0008",
+    "name": "Feral Griffin",
+    "element": "wind",
+    "rarity": "Common",
+    "asset": "7Dfy3MWktATDyzK59jyyof8JXQbFwCB3NhcGocN6G2yk",
+    "uri": "https://gateway.irys.xyz/2YRrw2EuagfAJ6Yo7yReyazuEM4dMRSLtNRnxSyZAosK",
+    "image": "https://gateway.irys.xyz/G3PQaa4HTHZLwzvS3omv1tdWahimQSPgnhWUMf8jtwW3"
+  },
+  {
+    "id": 10,
+    "seed": "zorr-genesis-0002",
+    "name": "Iron Lumen",
+    "element": "light",
+    "rarity": "Common",
+    "asset": "DSRRbrwqxpfX2ykbfu3hTf6B6k6SLYjPB2Mz1kB7SS9U",
+    "uri": "https://gateway.irys.xyz/6CxTdyUnzuET7X29JhT1qhWWfYec85WsuovsU6xEjxC3",
+    "image": "https://gateway.irys.xyz/CMTUJYsRmJrfxVsdq6vbJa7w3MMD2JRJUjeSJDS2Nro5"
+  },
+  {
+    "id": 11,
+    "seed": "zorr-genesis-0013",
+    "name": "Molten Panther",
+    "element": "dark",
+    "rarity": "Common",
+    "asset": "BJRwb1LAZpN3GaitGpcKm32RJHQ1ixTpPZ7LYxEnb5Jr",
+    "uri": "https://gateway.irys.xyz/3DpKH4zVRuLVS7QAMvr78ycRzC5vj73fD63fdoi8uDzm",
+    "image": "https://gateway.irys.xyz/tGaDmF7j5qzAtBndaX7VsAuYBFu3TNKZAGoed8uy6sS"
+  },
+  {
+    "id": 12,
+    "seed": "zorr-genesis-0007",
+    "name": "Astral Drake",
+    "element": "fire",
+    "rarity": "Rare",
+    "asset": "5JQ8j9XLmV7PMfE6Wx7mfY7QQ7KXaNxHaQ31L93YYKzc",
+    "uri": "https://gateway.irys.xyz/6jBBgVGbqxY4gfH635EwWEMHAUfuvea5ZhUE8P6hT7gd",
+    "image": "https://gateway.irys.xyz/7reXnXS4RUAev8wG1Vuik3ch8oq1HAPAnKaVqoDPAa4A"
+  },
+  {
+    "id": 13,
+    "seed": "zorr-genesis-0037",
+    "name": "Storm Serpent",
+    "element": "water",
+    "rarity": "Common",
+    "asset": "9FR3BusnvtrntXScaUQNeWv6hU7kbRouWortgVyJrtaF",
+    "uri": "https://gateway.irys.xyz/6sDdinUs56v96wby6qn5sB3xVB4bKf4epfG6YWSTN1K6",
+    "image": "https://gateway.irys.xyz/D1m2pSRXWHSmPZy1nFHWDrHHkChF83t4t4U1zciCkkMx"
+  },
+  {
+    "id": 14,
+    "seed": "zorr-genesis-0022",
+    "name": "Frost Behemoth",
+    "element": "earth",
+    "rarity": "Common",
+    "asset": "CtJAybVtTDitjuiSKqVXu8RrddZpooo7KKQkS7U8YbDM",
+    "uri": "https://gateway.irys.xyz/BJfb2ma9Mrb91V7uF45qQPyPLt7zfd47ETSNeFheRNbM",
+    "image": "https://gateway.irys.xyz/GxWyFwxzm1KesbK9w6rEd2UkRDeobJqTYYeJYcsyrKZg"
+  },
+  {
+    "id": 15,
+    "seed": "zorr-genesis-0014",
+    "name": "Shadow Griffin",
+    "element": "wind",
+    "rarity": "Common",
+    "asset": "AqhramvBLV2DZ69zusWQNpxVsg1cgtmTXGMTzL5QZKbR",
+    "uri": "https://gateway.irys.xyz/8FncQ9KVYyiKFMfqLn2NbqiAr2HPSC9C3CvUT9shM98u",
+    "image": "https://gateway.irys.xyz/7m1rwfySQXYgSpahLuDiunSUoRZsmsoKFtMZMmsn7g4p"
+  },
+  {
+    "id": 16,
+    "seed": "zorr-genesis-0010",
+    "name": "Astral Lumen",
+    "element": "light",
+    "rarity": "Common",
+    "asset": "8dmrZuixw6VjUCaDMrH3cN3S1xr7phqnSwbrBZzGGrLa",
+    "uri": "https://gateway.irys.xyz/wwkcCKi9GT2ghxhtJCkY5pL611TzenuZ4RurTFWsqtY",
+    "image": "https://gateway.irys.xyz/BtvJn1UXSm5jgvJ531Pki9TireGu2cLweapRskjMTJF8"
+  },
+  {
+    "id": 17,
+    "seed": "zorr-genesis-0015",
+    "name": "Ancient Wraith",
+    "element": "dark",
+    "rarity": "Rare",
+    "asset": "FejwXZXRByUUeZDqy86fr9TkejBzDXsCeAPXFFnGgvMS",
+    "uri": "https://gateway.irys.xyz/AhzmDjGUqoefSeCW3Wnv7SqJvPJgZzZzLoyWksYcZDfH",
+    "image": "https://gateway.irys.xyz/5GvmyZAowUVMnhaMni245yZiruvPCNSBePhQHG5ptQSL"
+  },
+  {
+    "id": 18,
+    "seed": "zorr-genesis-0028",
+    "name": "Molten Drake",
+    "element": "fire",
+    "rarity": "Common",
+    "asset": "3N41BXi1GjEcMbNVawd9beahLmYw9x8vMrA11LNHHhe4",
+    "uri": "https://gateway.irys.xyz/HebiCMu5xjWsFufXtfVzrDaodVy2B696nSBvoMQ2fcM5",
+    "image": "https://gateway.irys.xyz/hceVJPRD7MQasMFRVZiewNJrqADRsTseiDaNwUeMijP"
+  },
+  {
+    "id": 19,
+    "seed": "zorr-genesis-0038",
+    "name": "Blazing Leviathan",
+    "element": "water",
+    "rarity": "Epic",
+    "asset": "9jWiY3ocPdJxFeDWJfPBEojbQHkTeedAPk9qBv5bPKoW",
+    "uri": "https://gateway.irys.xyz/5vuTMFUwxpzAyH9R7wsUF3j3HqShjbgHjdX62EY4t4he",
+    "image": "https://gateway.irys.xyz/Ev5ZXjNDEv2f2iApm6sQE7iPZZZdTsj5N7tp4vK4uiiZ"
+  },
+  {
+    "id": 20,
+    "seed": "zorr-genesis-0030",
+    "name": "Blazing Behemoth",
+    "element": "earth",
+    "rarity": "Rare",
+    "asset": "4PSQaUUrzrPn5rVtnKBr3TiqcZgFXAWnooXbfmKGoq66",
+    "uri": "https://gateway.irys.xyz/5TLAZGhwraLEaoxCEiKKgqT1PMrhKrNSq5YLyRaarx6a",
+    "image": "https://gateway.irys.xyz/AXTyfyJ4uPTWB4SywLrU56pM5wPkUAiQ39HzEmatziLL"
+  },
+  {
+    "id": 21,
+    "seed": "zorr-genesis-0016",
+    "name": "Ancient Falcon",
+    "element": "wind",
+    "rarity": "Common",
+    "asset": "DFHGSYVVGp7DLm6WGysqSM8t9mCKKVFK7eQ8vymKrm4h",
+    "uri": "https://gateway.irys.xyz/E9VhUnFimiWBx9m8J1hABAiXaaggNBQhjGCuRDV7cGrj",
+    "image": "https://gateway.irys.xyz/9uwaKrPShyZUMEnRe2AvMwtXagB8rSWLqEfFEws2fXVh"
+  },
+  {
+    "id": 22,
+    "seed": "zorr-genesis-0012",
+    "name": "Radiant Lumen",
+    "element": "light",
+    "rarity": "Common",
+    "asset": "8xE3a1JgTnGhCJmi55SgcUHrj4JZvwGdtFfUf1bkqM6F",
+    "uri": "https://gateway.irys.xyz/FT869WSR3s4VhDaWcULeXhMLWDACC64k4BuK7ZZtUyXh",
+    "image": "https://gateway.irys.xyz/6orKf9dU7FrnMTB5NFKZoPXiBCSArDhMC1DZ4tnyBcXa"
+  },
+  {
+    "id": 23,
+    "seed": "zorr-genesis-0020",
+    "name": "Shadow Wraith",
+    "element": "dark",
+    "rarity": "Common",
+    "asset": "9xFN21LLGXXaWrhLZTNsWhnX1r5KQRdpAbML24EQ9KRY",
+    "uri": "https://gateway.irys.xyz/3QR7pUWHsEKoY9UYpYQaDkfJkugdqkQQZ4msHnue9cUc",
+    "image": "https://gateway.irys.xyz/7iggQkgWukTbEsAJVEmzRA38UzC7EfMcVeEVvUyUyFNK"
+  },
+  {
+    "id": 24,
+    "seed": "zorr-genesis-0036",
+    "name": "Astral Salamander",
+    "element": "fire",
+    "rarity": "Common",
+    "asset": "G4Lz9K9j6gsMELDSmuUk6zSyGaSwXpabRLqx5xYAZZtW",
+    "uri": "https://gateway.irys.xyz/C5Dd6ApNQEzonR6E3RJSRDARo5aZPs1vnEh6QMV172S1",
+    "image": "https://gateway.irys.xyz/61djBzVRfHL9C7efKkA7sWo1Z3CGyoaNCqF3qrvEcHTe"
+  },
+  {
+    "id": 25,
+    "seed": "zorr-genesis-0047",
+    "name": "Shadow Kraken",
+    "element": "water",
+    "rarity": "Common",
+    "asset": "DNrtyWuj9BUKGqGsKuE6q6ezZtn5M6vQ4ccvzQo5VmQX",
+    "uri": "https://gateway.irys.xyz/BZEpw7ez2CGVPCFE5rCNvT1N1v4kjt2Rctc5misMbzfz",
+    "image": "https://gateway.irys.xyz/79MLeeKyTaNYpBZ3jWtRZ3zfXvtNG8armgjYW3AukTpq"
+  },
+  {
+    "id": 26,
+    "seed": "zorr-genesis-0040",
+    "name": "Feral Tortoise",
+    "element": "earth",
+    "rarity": "Rare",
+    "asset": "FhoDuarBRtGebR1n7sgw9Gm9hL9aKqEAKQRxkWWc9xGf",
+    "uri": "https://gateway.irys.xyz/3E3XoSk1bGyD3RnHom2L9V4sXMDojN6ejafXoxZ1u8Hz",
+    "image": "https://gateway.irys.xyz/49nf3wm69Gy5iT2x5JhrhLWXxuHGBxvREfomUdLEFWXM"
+  },
+  {
+    "id": 27,
+    "seed": "zorr-genesis-0017",
+    "name": "Astral Griffin",
+    "element": "wind",
+    "rarity": "Rare",
+    "asset": "9og3e5QJzfSwbEvfvP7BMPwGTFpphWaKxUacdCv8NacY",
+    "uri": "https://gateway.irys.xyz/5CD8ch1NgfjNybJWJZgyyARz2bDw1cjzefJhYMGBK4q9",
+    "image": "https://gateway.irys.xyz/4H4fbY1AUzvtMJt5UgifLg5wg7YQ1REYCpvjE97tsXGt"
+  },
+  {
+    "id": 28,
+    "seed": "zorr-genesis-0054",
+    "name": "Frost Unicorn",
+    "element": "light",
+    "rarity": "Rare",
+    "asset": "HTmi5DgJb5Nge47yguP8HvYsT1nrHjKygmzn9aGToef3",
+    "uri": "https://gateway.irys.xyz/9xi64QeoGwVk5rzYvqcwbHujvHfQQxBhdWgDVAtVZ9UP",
+    "image": "https://gateway.irys.xyz/Cr6WX7TpQRTRtURAT6uuuKakuwMbw3AyeQ7NzRq81uwW"
+  },
+  {
+    "id": 29,
+    "seed": "zorr-genesis-0024",
+    "name": "Blazing Reaper",
+    "element": "dark",
+    "rarity": "Rare",
+    "asset": "3rvQ9WB3niZ5UQY5ce8y6WEvWmZ64GmyzkS3fnR5nLc2",
+    "uri": "https://gateway.irys.xyz/9mRoHHHCGzNGPQxBy7AHjqk3ViEGqnW2HB3N3G6QBsJg",
+    "image": "https://gateway.irys.xyz/AMDLUhVpHkMPtQeuDDWfVsQq2yh3M8MjBTTeQRy9H7rW"
+  },
+  {
+    "id": 30,
+    "seed": "zorr-genesis-0063",
+    "name": "Iron Salamander",
+    "element": "fire",
+    "rarity": "Rare",
+    "asset": "EJJdCb3qR5J7VkK9EPDbiwDuiuiNJspiXZ4vpbFY6V5D",
+    "uri": "https://gateway.irys.xyz/3BfFUUzinGMv7E1yRvccs8DGzGpF9oWCj89D1qCPtA1z",
+    "image": "https://gateway.irys.xyz/4zo5wCu1vvVyE5H3pH8wdFGund7Zc8qBA2eWFZetjAbt"
+  },
+  {
+    "id": 31,
+    "seed": "zorr-genesis-0051",
+    "name": "Shadow Serpent",
+    "element": "water",
+    "rarity": "Common",
+    "asset": "487eFwAwgeBt3qMxSD3P15YNymowmree1EVzJNnbqZXn",
+    "uri": "https://gateway.irys.xyz/7xKuMKc4ykHZVrufuhmwvhg7mw3ZQszcNiMQwKhQPzhw",
+    "image": "https://gateway.irys.xyz/EdtJp8wp7zUU5saToqVePW5kEChqVd1SPSN69m9SK4fg"
+  },
+  {
+    "id": 32,
+    "seed": "zorr-genesis-0046",
+    "name": "Feral Behemoth",
+    "element": "earth",
+    "rarity": "Epic",
+    "asset": "66JCc8352kicyQYXdcq6QCQAdbJeujNfqSn7VinvxjkP",
+    "uri": "https://gateway.irys.xyz/BECnbRzTyc4kjpuDRyHCtXKTdGAVeyhBb3xEDiwactFd",
+    "image": "https://gateway.irys.xyz/GtAeCF2BNys7vptuM2pfAuBabp78pmD4sAVHiuvkzzsf"
+  },
+  {
+    "id": 33,
+    "seed": "zorr-genesis-0032",
+    "name": "Feral Wyvern",
+    "element": "wind",
+    "rarity": "Epic",
+    "asset": "HZVeXPMjG1DLutN5qh93ZEw7bYcTkgcoPg29W4NwSJaN",
+    "uri": "https://gateway.irys.xyz/FuhuHnbom43wxD9XkxWWPmeSU2JmURKFrCCveQJPedKe",
+    "image": "https://gateway.irys.xyz/9HheFqiMtNLhFq5kM7yeDVMz3mYJjThu6iawbYeWxsMh"
+  },
+  {
+    "id": 34,
+    "seed": "zorr-genesis-0093",
+    "name": "Blazing Unicorn",
+    "element": "light",
+    "rarity": "Rare",
+    "asset": "ARYjhhPApEX7EADki7nN9SurPows4PYaagZrpbi4JfXt",
+    "uri": "https://gateway.irys.xyz/BtrVrSh6K7EiUZVXwgZecE6aioRV7RMXgAQoWWS7CCtd",
+    "image": "https://gateway.irys.xyz/3wYMEYgswVE8i1wfZodkpTh5ra9msGCSgCN4Z3TupHFA"
+  },
+  {
+    "id": 35,
+    "seed": "zorr-genesis-0034",
+    "name": "Astral Panther",
+    "element": "dark",
+    "rarity": "Epic",
+    "asset": "BsDHTwtRgaRJ4cTgusQa8KqcKpbHXygYcwR594TfndZ6",
+    "uri": "https://gateway.irys.xyz/6mktJn1Vy2mu3fpy3Wh6qy8HmVTbtQfURudMrSWRsqtP",
+    "image": "https://gateway.irys.xyz/7ATHMTHsUBQsmBcuuYAZxmMo84EF5o4cV2cv6FrYkrN1"
+  },
+  {
+    "id": 36,
+    "seed": "zorr-genesis-0195",
+    "name": "Feral Drake",
+    "element": "fire",
+    "rarity": "Epic",
+    "asset": "C21j63LbL5ZmX6GGZgRDWHXFY5bFoZ2CLdNMCWdq8V4m",
+    "uri": "https://gateway.irys.xyz/7yTu2hwzhVUTDMvdJcFbiiYgjkiR6p3WTZb7rHWbEPmz",
+    "image": "https://gateway.irys.xyz/JDSCVd22kSjncBVA5upAoLVTwXbx1auDEnm7ZJtiX4ZP"
+  },
+  {
+    "id": 37,
+    "seed": "zorr-genesis-0061",
+    "name": "Molten Serpent",
+    "element": "water",
+    "rarity": "Epic",
+    "asset": "FiCxKTESaqqpyJUDrzRAJ7uEu9kcmKYur1YVQcJszu6T",
+    "uri": "https://gateway.irys.xyz/2jt3Z8zvzE4PXJxrUhXnkoLC1t2QdmxiVAtqmG4MBwHY",
+    "image": "https://gateway.irys.xyz/CFvRQ7pbJS7LFoweMYTi3AYiQzjoLbZAaZ4H4VNe3La6"
+  },
+  {
+    "id": 38,
+    "seed": "zorr-genesis-0048",
+    "name": "Iron Tortoise",
+    "element": "earth",
+    "rarity": "Common",
+    "asset": "J8Z5Z4c3DFKAQUDtfh9N9ykeZDcsdZAqR1gvsaExXWfn",
+    "uri": "https://gateway.irys.xyz/BmQEFQpgQbbSSaLBbtmXz1pYVbBUtmVuWfSpHJXoBYHN",
+    "image": "https://gateway.irys.xyz/6CDimMSxWev7bfFfk32XEugFFqpCUgoQ39rTMXQAmPtu"
+  },
+  {
+    "id": 39,
+    "seed": "zorr-genesis-0127",
+    "name": "Frost Griffin",
+    "element": "wind",
+    "rarity": "Legendary",
+    "asset": "NtNreCu5c4L5hM4skPQXnGzvTRP4qiWDfRazjYuY9zC",
+    "uri": "https://gateway.irys.xyz/7M1Eam1Zvv5VpgFh6NrpYztmDSnwW6gQnQgWL4nNvGyb",
+    "image": "https://gateway.irys.xyz/4QibppnciDBueUHQWP5w67gdfHgZqzxadfFRAjnugJ5n"
+  },
+  {
+    "id": 40,
+    "seed": "zorr-genesis-0177",
+    "name": "Ancient Lumen",
+    "element": "light",
+    "rarity": "Epic",
+    "asset": "AHJHBygqykZjdg91QPm2LCK49xo3e5wypB1jbEpHvwha",
+    "uri": "https://gateway.irys.xyz/J9hrWPBikosHCgiWqfjpntDrV32rGLJmvGjn98LG9q9b",
+    "image": "https://gateway.irys.xyz/5AodbivCSdpuGLwujhzTYEwipvsizux3v7hijrafeymG"
+  },
+  {
+    "id": 41,
+    "seed": "zorr-genesis-0039",
+    "name": "Radiant Wraith",
+    "element": "dark",
+    "rarity": "Epic",
+    "asset": "7KHCWy5oKp1Ny3Pvfs1D5JLCdX5GJs6yikdyQutzF3Ki",
+    "uri": "https://gateway.irys.xyz/Aog68zghyqssJtkw9Mc13bUU4DXrCokRg8GzMMxpW8Vm",
+    "image": "https://gateway.irys.xyz/7NvWkCxX1LknZMftNKtzAA2VdTcKCAGrJxUz6kvNTdZC"
+  },
+  {
+    "id": 42,
+    "seed": "zorr-genesis-0043",
+    "name": "Storm Phoenix",
+    "element": "fire",
+    "rarity": "Common",
+    "asset": "FXC5PUfB6VAG7EbBzZ8aMrETywaAgkTkYuZ3Pu9nDy6K",
+    "uri": "https://gateway.irys.xyz/7N4uRUTeqwcrZ4p1FFtfGqXvwCviqGiCzLufncmM9932",
+    "image": "https://gateway.irys.xyz/551jzKmwJv1hVueCUJNLzzccqyGUAbviNRYQdV115wBN"
+  },
+  {
+    "id": 43,
+    "seed": "zorr-genesis-0059",
+    "name": "Frost Leviathan",
+    "element": "water",
+    "rarity": "Common",
+    "asset": "DW4D5SdxviNALXhwqb59j7cVM3MxSTAPLq6Y7jfM6VPq",
+    "uri": "https://gateway.irys.xyz/AWMUZgpMXkczTEH7uCoZsnqzDMNHHPK1Fv7QFJRHEdUd",
+    "image": "https://gateway.irys.xyz/32PH64q8Rg44UntgioMTQpiRebBd1dYwHp92oJx7nbuK"
+  },
+  {
+    "id": 44,
+    "seed": "zorr-genesis-0254",
+    "name": "Radiant Behemoth",
+    "element": "earth",
+    "rarity": "Legendary",
+    "asset": "63T5NMT1sThCziHE9E5MPuQGmEAMsdMoq8nVFx5bKeQg",
+    "uri": "https://gateway.irys.xyz/GcPBGbgeRuyG2NXA6oVy6BFSA9LU6D1C21mRtK8xuZ7A",
+    "image": "https://gateway.irys.xyz/FPaFiMiqTxia4nmayFH1cm6RRqQoSxpR1oe26bxAkLGW"
+  },
+  {
+    "id": 45,
+    "seed": "zorr-genesis-0167",
+    "name": "Ancient Wyvern",
+    "element": "wind",
+    "rarity": "Epic",
+    "asset": "7Zi8qUJfzWCnfpJLSsWfiBXuEgiqtUS8chdwhidTnrnM",
+    "uri": "https://gateway.irys.xyz/H2hyNv3rNEJ8Rz9TqC69QaYcMikxw3GaYyJG1AtYRXD6",
+    "image": "https://gateway.irys.xyz/FXcENcC4X9pGxd6NrJYwYPnJu4KU6G51713U4REyeYPe"
+  },
+  {
+    "id": 46,
+    "seed": "zorr-genesis-0259",
+    "name": "Molten Seraph",
+    "element": "light",
+    "rarity": "Legendary",
+    "asset": "A9zcFXDbPbCDv6VcCF7bYCF1pV4wVEz5DQXnAJ8ME2sY",
+    "uri": "https://gateway.irys.xyz/4AEkci8WTSeTfMyKiWdMpJd9LyhJQ6CQuYdKwur6GaPa",
+    "image": "https://gateway.irys.xyz/4CvsbstDE73aZEykTQJszhhEZcQDYrSVWiMnHUE13k1G"
+  },
+  {
+    "id": 47,
+    "seed": "zorr-genesis-0031",
+    "name": "Ancient Reaper",
+    "element": "dark",
+    "rarity": "Common",
+    "asset": "AvXZ4BHeRAviTX3hTvMBBvCs6AriiWQ9LPwid6ruPLTy",
+    "uri": "https://gateway.irys.xyz/A8GxRr5cKT9QDLJwtuQjkgGPKkqzdjGxPcaHPyZFdnG8",
+    "image": "https://gateway.irys.xyz/7ps8QwAeUSmiJiXbwvssBU235eoTu5fpsJxzEHE2WNYc"
+  }
+]

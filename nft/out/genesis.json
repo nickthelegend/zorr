@@ -1,0 +1,722 @@
+[
+  {
+    "seed": "zorr-genesis-0005",
+    "name": "Frost Drake",
+    "element": "fire",
+    "rarity": "Common",
+    "power": 53,
+    "maxHealth": 216,
+    "stats": {
+      "attack": 50,
+      "defense": 47,
+      "speed": 68,
+      "magic": 46
+    },
+    "id": 0
+  },
+  {
+    "seed": "zorr-genesis-0003",
+    "name": "Storm Leviathan",
+    "element": "water",
+    "rarity": "Rare",
+    "power": 64,
+    "maxHealth": 240,
+    "stats": {
+      "attack": 80,
+      "defense": 78,
+      "speed": 52,
+      "magic": 44
+    },
+    "id": 1
+  },
+  {
+    "seed": "zorr-genesis-0009",
+    "name": "Ancient Behemoth",
+    "element": "earth",
+    "rarity": "Epic",
+    "power": 66,
+    "maxHealth": 312,
+    "stats": {
+      "attack": 52,
+      "defense": 42,
+      "speed": 85,
+      "magic": 83
+    },
+    "id": 2
+  },
+  {
+    "seed": "zorr-genesis-0001",
+    "name": "Iron Griffin",
+    "element": "wind",
+    "rarity": "Rare",
+    "power": 70,
+    "maxHealth": 164,
+    "stats": {
+      "attack": 69,
+      "defense": 70,
+      "speed": 62,
+      "magic": 77
+    },
+    "id": 3
+  },
+  {
+    "seed": "zorr-genesis-0000",
+    "name": "Blazing Lumen",
+    "element": "light",
+    "rarity": "Epic",
+    "power": 59,
+    "maxHealth": 328,
+    "stats": {
+      "attack": 82,
+      "defense": 62,
+      "speed": 51,
+      "magic": 41
+    },
+    "id": 4
+  },
+  {
+    "seed": "zorr-genesis-0011",
+    "name": "Astral Reaper",
+    "element": "dark",
+    "rarity": "Common",
+    "power": 57,
+    "maxHealth": 224,
+    "stats": {
+      "attack": 64,
+      "defense": 49,
+      "speed": 47,
+      "magic": 68
+    },
+    "id": 5
+  },
+  {
+    "seed": "zorr-genesis-0006",
+    "name": "Ancient Drake",
+    "element": "fire",
+    "rarity": "Epic",
+    "power": 73,
+    "maxHealth": 256,
+    "stats": {
+      "attack": 82,
+      "defense": 80,
+      "speed": 61,
+      "magic": 70
+    },
+    "id": 6
+  },
+  {
+    "seed": "zorr-genesis-0004",
+    "name": "Iron Leviathan",
+    "element": "water",
+    "rarity": "Rare",
+    "power": 60,
+    "maxHealth": 236,
+    "stats": {
+      "attack": 46,
+      "defense": 63,
+      "speed": 77,
+      "magic": 54
+    },
+    "id": 7
+  },
+  {
+    "seed": "zorr-genesis-0018",
+    "name": "Molten Behemoth",
+    "element": "earth",
+    "rarity": "Common",
+    "power": 54,
+    "maxHealth": 220,
+    "stats": {
+      "attack": 56,
+      "defense": 50,
+      "speed": 55,
+      "magic": 53
+    },
+    "id": 8
+  },
+  {
+    "seed": "zorr-genesis-0008",
+    "name": "Feral Griffin",
+    "element": "wind",
+    "rarity": "Common",
+    "power": 56,
+    "maxHealth": 180,
+    "stats": {
+      "attack": 59,
+      "defense": 47,
+      "speed": 58,
+      "magic": 61
+    },
+    "id": 9
+  },
+  {
+    "seed": "zorr-genesis-0002",
+    "name": "Iron Lumen",
+    "element": "light",
+    "rarity": "Common",
+    "power": 52,
+    "maxHealth": 272,
+    "stats": {
+      "attack": 43,
+      "defense": 63,
+      "speed": 54,
+      "magic": 46
+    },
+    "id": 10
+  },
+  {
+    "seed": "zorr-genesis-0013",
+    "name": "Molten Panther",
+    "element": "dark",
+    "rarity": "Common",
+    "power": 63,
+    "maxHealth": 264,
+    "stats": {
+      "attack": 56,
+      "defense": 69,
+      "speed": 61,
+      "magic": 67
+    },
+    "id": 11
+  },
+  {
+    "seed": "zorr-genesis-0007",
+    "name": "Astral Drake",
+    "element": "fire",
+    "rarity": "Rare",
+    "power": 70,
+    "maxHealth": 276,
+    "stats": {
+      "attack": 62,
+      "defense": 65,
+      "speed": 72,
+      "magic": 80
+    },
+    "id": 12
+  },
+  {
+    "seed": "zorr-genesis-0037",
+    "name": "Storm Serpent",
+    "element": "water",
+    "rarity": "Common",
+    "power": 58,
+    "maxHealth": 216,
+    "stats": {
+      "attack": 57,
+      "defense": 66,
+      "speed": 60,
+      "magic": 48
+    },
+    "id": 13
+  },
+  {
+    "seed": "zorr-genesis-0022",
+    "name": "Frost Behemoth",
+    "element": "earth",
+    "rarity": "Common",
+    "power": 55,
+    "maxHealth": 248,
+    "stats": {
+      "attack": 58,
+      "defense": 45,
+      "speed": 53,
+      "magic": 64
+    },
+    "id": 14
+  },
+  {
+    "seed": "zorr-genesis-0014",
+    "name": "Shadow Griffin",
+    "element": "wind",
+    "rarity": "Common",
+    "power": 53,
+    "maxHealth": 220,
+    "stats": {
+      "attack": 66,
+      "defense": 40,
+      "speed": 44,
+      "magic": 61
+    },
+    "id": 15
+  },
+  {
+    "seed": "zorr-genesis-0010",
+    "name": "Astral Lumen",
+    "element": "light",
+    "rarity": "Common",
+    "power": 55,
+    "maxHealth": 256,
+    "stats": {
+      "attack": 59,
+      "defense": 54,
+      "speed": 48,
+      "magic": 59
+    },
+    "id": 16
+  },
+  {
+    "seed": "zorr-genesis-0015",
+    "name": "Ancient Wraith",
+    "element": "dark",
+    "rarity": "Rare",
+    "power": 66,
+    "maxHealth": 328,
+    "stats": {
+      "attack": 59,
+      "defense": 62,
+      "speed": 73,
+      "magic": 68
+    },
+    "id": 17
+  },
+  {
+    "seed": "zorr-genesis-0028",
+    "name": "Molten Drake",
+    "element": "fire",
+    "rarity": "Common",
+    "power": 59,
+    "maxHealth": 240,
+    "stats": {
+      "attack": 66,
+      "defense": 59,
+      "speed": 42,
+      "magic": 69
+    },
+    "id": 18
+  },
+  {
+    "seed": "zorr-genesis-0038",
+    "name": "Blazing Leviathan",
+    "element": "water",
+    "rarity": "Epic",
+    "power": 71,
+    "maxHealth": 180,
+    "stats": {
+      "attack": 50,
+      "defense": 79,
+      "speed": 82,
+      "magic": 74
+    },
+    "id": 19
+  },
+  {
+    "seed": "zorr-genesis-0030",
+    "name": "Blazing Behemoth",
+    "element": "earth",
+    "rarity": "Rare",
+    "power": 70,
+    "maxHealth": 160,
+    "stats": {
+      "attack": 50,
+      "defense": 79,
+      "speed": 81,
+      "magic": 71
+    },
+    "id": 20
+  },
+  {
+    "seed": "zorr-genesis-0016",
+    "name": "Ancient Falcon",
+    "element": "wind",
+    "rarity": "Common",
+    "power": 62,
+    "maxHealth": 216,
+    "stats": {
+      "attack": 66,
+      "defense": 59,
+      "speed": 56,
+      "magic": 67
+    },
+    "id": 21
+  },
+  {
+    "seed": "zorr-genesis-0012",
+    "name": "Radiant Lumen",
+    "element": "light",
+    "rarity": "Common",
+    "power": 50,
+    "maxHealth": 176,
+    "stats": {
+      "attack": 46,
+      "defense": 48,
+      "speed": 52,
+      "magic": 54
+    },
+    "id": 22
+  },
+  {
+    "seed": "zorr-genesis-0020",
+    "name": "Shadow Wraith",
+    "element": "dark",
+    "rarity": "Common",
+    "power": 62,
+    "maxHealth": 264,
+    "stats": {
+      "attack": 67,
+      "defense": 64,
+      "speed": 66,
+      "magic": 49
+    },
+    "id": 23
+  },
+  {
+    "seed": "zorr-genesis-0036",
+    "name": "Astral Salamander",
+    "element": "fire",
+    "rarity": "Common",
+    "power": 56,
+    "maxHealth": 176,
+    "stats": {
+      "attack": 56,
+      "defense": 48,
+      "speed": 68,
+      "magic": 53
+    },
+    "id": 24
+  },
+  {
+    "seed": "zorr-genesis-0047",
+    "name": "Shadow Kraken",
+    "element": "water",
+    "rarity": "Common",
+    "power": 52,
+    "maxHealth": 216,
+    "stats": {
+      "attack": 68,
+      "defense": 50,
+      "speed": 44,
+      "magic": 45
+    },
+    "id": 25
+  },
+  {
+    "seed": "zorr-genesis-0040",
+    "name": "Feral Tortoise",
+    "element": "earth",
+    "rarity": "Rare",
+    "power": 56,
+    "maxHealth": 276,
+    "stats": {
+      "attack": 66,
+      "defense": 52,
+      "speed": 47,
+      "magic": 60
+    },
+    "id": 26
+  },
+  {
+    "seed": "zorr-genesis-0017",
+    "name": "Astral Griffin",
+    "element": "wind",
+    "rarity": "Rare",
+    "power": 56,
+    "maxHealth": 180,
+    "stats": {
+      "attack": 47,
+      "defense": 79,
+      "speed": 42,
+      "magic": 56
+    },
+    "id": 27
+  },
+  {
+    "seed": "zorr-genesis-0054",
+    "name": "Frost Unicorn",
+    "element": "light",
+    "rarity": "Rare",
+    "power": 55,
+    "maxHealth": 300,
+    "stats": {
+      "attack": 57,
+      "defense": 57,
+      "speed": 52,
+      "magic": 52
+    },
+    "id": 28
+  },
+  {
+    "seed": "zorr-genesis-0024",
+    "name": "Blazing Reaper",
+    "element": "dark",
+    "rarity": "Rare",
+    "power": 66,
+    "maxHealth": 220,
+    "stats": {
+      "attack": 48,
+      "defense": 68,
+      "speed": 81,
+      "magic": 66
+    },
+    "id": 29
+  },
+  {
+    "seed": "zorr-genesis-0063",
+    "name": "Iron Salamander",
+    "element": "fire",
+    "rarity": "Rare",
+    "power": 50,
+    "maxHealth": 276,
+    "stats": {
+      "attack": 47,
+      "defense": 53,
+      "speed": 41,
+      "magic": 57
+    },
+    "id": 30
+  },
+  {
+    "seed": "zorr-genesis-0051",
+    "name": "Shadow Serpent",
+    "element": "water",
+    "rarity": "Common",
+    "power": 45,
+    "maxHealth": 240,
+    "stats": {
+      "attack": 52,
+      "defense": 44,
+      "speed": 42,
+      "magic": 41
+    },
+    "id": 31
+  },
+  {
+    "seed": "zorr-genesis-0046",
+    "name": "Feral Behemoth",
+    "element": "earth",
+    "rarity": "Epic",
+    "power": 62,
+    "maxHealth": 248,
+    "stats": {
+      "attack": 90,
+      "defense": 40,
+      "speed": 77,
+      "magic": 41
+    },
+    "id": 32
+  },
+  {
+    "seed": "zorr-genesis-0032",
+    "name": "Feral Wyvern",
+    "element": "wind",
+    "rarity": "Epic",
+    "power": 65,
+    "maxHealth": 268,
+    "stats": {
+      "attack": 83,
+      "defense": 82,
+      "speed": 52,
+      "magic": 44
+    },
+    "id": 33
+  },
+  {
+    "seed": "zorr-genesis-0093",
+    "name": "Blazing Unicorn",
+    "element": "light",
+    "rarity": "Rare",
+    "power": 69,
+    "maxHealth": 208,
+    "stats": {
+      "attack": 80,
+      "defense": 70,
+      "speed": 72,
+      "magic": 54
+    },
+    "id": 34
+  },
+  {
+    "seed": "zorr-genesis-0034",
+    "name": "Astral Panther",
+    "element": "dark",
+    "rarity": "Epic",
+    "power": 73,
+    "maxHealth": 312,
+    "stats": {
+      "attack": 87,
+      "defense": 52,
+      "speed": 62,
+      "magic": 90
+    },
+    "id": 35
+  },
+  {
+    "seed": "zorr-genesis-0195",
+    "name": "Feral Drake",
+    "element": "fire",
+    "rarity": "Epic",
+    "power": 61,
+    "maxHealth": 368,
+    "stats": {
+      "attack": 57,
+      "defense": 51,
+      "speed": 50,
+      "magic": 87
+    },
+    "id": 36
+  },
+  {
+    "seed": "zorr-genesis-0061",
+    "name": "Molten Serpent",
+    "element": "water",
+    "rarity": "Epic",
+    "power": 75,
+    "maxHealth": 352,
+    "stats": {
+      "attack": 80,
+      "defense": 87,
+      "speed": 41,
+      "magic": 90
+    },
+    "id": 37
+  },
+  {
+    "seed": "zorr-genesis-0048",
+    "name": "Iron Tortoise",
+    "element": "earth",
+    "rarity": "Common",
+    "power": 52,
+    "maxHealth": 160,
+    "stats": {
+      "attack": 45,
+      "defense": 40,
+      "speed": 56,
+      "magic": 65
+    },
+    "id": 38
+  },
+  {
+    "seed": "zorr-genesis-0127",
+    "name": "Frost Griffin",
+    "element": "wind",
+    "rarity": "Legendary",
+    "power": 82,
+    "maxHealth": 176,
+    "stats": {
+      "attack": 101,
+      "defense": 98,
+      "speed": 48,
+      "magic": 82
+    },
+    "id": 39
+  },
+  {
+    "seed": "zorr-genesis-0177",
+    "name": "Ancient Lumen",
+    "element": "light",
+    "rarity": "Epic",
+    "power": 72,
+    "maxHealth": 268,
+    "stats": {
+      "attack": 51,
+      "defense": 73,
+      "speed": 73,
+      "magic": 92
+    },
+    "id": 40
+  },
+  {
+    "seed": "zorr-genesis-0039",
+    "name": "Radiant Wraith",
+    "element": "dark",
+    "rarity": "Epic",
+    "power": 64,
+    "maxHealth": 332,
+    "stats": {
+      "attack": 41,
+      "defense": 79,
+      "speed": 47,
+      "magic": 88
+    },
+    "id": 41
+  },
+  {
+    "seed": "zorr-genesis-0043",
+    "name": "Storm Phoenix",
+    "element": "fire",
+    "rarity": "Common",
+    "power": 56,
+    "maxHealth": 192,
+    "stats": {
+      "attack": 63,
+      "defense": 51,
+      "speed": 48,
+      "magic": 62
+    },
+    "id": 42
+  },
+  {
+    "seed": "zorr-genesis-0059",
+    "name": "Frost Leviathan",
+    "element": "water",
+    "rarity": "Common",
+    "power": 45,
+    "maxHealth": 160,
+    "stats": {
+      "attack": 41,
+      "defense": 41,
+      "speed": 54,
+      "magic": 43
+    },
+    "id": 43
+  },
+  {
+    "seed": "zorr-genesis-0254",
+    "name": "Radiant Behemoth",
+    "element": "earth",
+    "rarity": "Legendary",
+    "power": 66,
+    "maxHealth": 256,
+    "stats": {
+      "attack": 63,
+      "defense": 54,
+      "speed": 94,
+      "magic": 51
+    },
+    "id": 44
+  },
+  {
+    "seed": "zorr-genesis-0167",
+    "name": "Ancient Wyvern",
+    "element": "wind",
+    "rarity": "Epic",
+    "power": 65,
+    "maxHealth": 284,
+    "stats": {
+      "attack": 46,
+      "defense": 47,
+      "speed": 89,
+      "magic": 79
+    },
+    "id": 45
+  },
+  {
+    "seed": "zorr-genesis-0259",
+    "name": "Molten Seraph",
+    "element": "light",
+    "rarity": "Legendary",
+    "power": 56,
+    "maxHealth": 408,
+    "stats": {
+      "attack": 43,
+      "defense": 50,
+      "speed": 58,
+      "magic": 73
+    },
+    "id": 46
+  },
+  {
+    "seed": "zorr-genesis-0031",
+    "name": "Ancient Reaper",
+    "element": "dark",
+    "rarity": "Common",
+    "power": 47,
+    "maxHealth": 268,
+    "stats": {
+      "attack": 53,
+      "defense": 43,
+      "speed": 41,
+      "magic": 49
+    },
+    "id": 47
+  }
+]
