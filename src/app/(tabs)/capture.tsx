@@ -22,6 +22,7 @@ import { darkMapStyle } from '../../features/capture/map-style'
 import { territoryOutline, tileKey, tilePolygon, tilesAround } from '../../features/capture/tiles'
 import { useGame } from '../../features/game/game-store'
 import { rivalForTile } from '../../features/game/rivals'
+import { hitHaptic, winHaptic, failHaptic } from '../../features/core/haptics'
 import { submitStats } from '../../features/nft/nft'
 import { formatDuration, formatPace, RunSummary, tileAreaKm2, useRunSession } from '../../features/run/use-run-session'
 import { colors, fonts, radius } from '../../theme'
@@ -72,7 +73,12 @@ export default function RunScreen() {
   const centered = useRef(false)
 
   // Stealing a rival tile is worth double.
-  const run = useRunSession({ onCapture: (key) => game.addCapture(key, rivalForTile(key) ? 2 : 1) })
+  const run = useRunSession({
+    onCapture: (key) => {
+      hitHaptic()
+      game.addCapture(key, rivalForTile(key) ? 2 : 1)
+    },
+  })
 
   // Auto-dismiss toasts.
   useEffect(() => {
@@ -163,6 +169,7 @@ export default function RunScreen() {
     try {
       // Headline: capture on the MagicBlock Ephemeral Rollup (gasless, instant).
       const { ms } = await captureTileOnER(tx, ty)
+      winHaptic()
       setToast({
         kind: 'ok',
         msg: `Captured on MagicBlock ER ⚡ ${ms}ms`,
@@ -173,9 +180,11 @@ export default function RunScreen() {
       // Fall back to a base-layer run log if the ER path is unavailable.
       try {
         const sig = await logRunOnChain(s.distanceKm, s.areaKm2, s.tiles.length)
+        winHaptic()
         setToast({ kind: 'ok', msg: 'Run logged on-chain', url: explorerTxUrl(sig) })
         setSummary(null)
       } catch (e) {
+        failHaptic()
         setToast({
           kind: 'err',
           msg: e instanceof UnfundedError ? 'Fund your Zorr wallet with devnet SOL.' : 'Log failed — try again.',

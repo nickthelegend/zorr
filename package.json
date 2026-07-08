@@ -17,7 +17,8 @@
     "test": "jest",
     "test:integration": "node scripts/integration.mjs",
     "test:socket": "node scripts/socket-integration.mjs",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "postinstall": "node -e \"try{require('fs').writeFileSync('node_modules/expo-nearby-connections/android/fix-prefab.gradle','// no-op restored\n')}catch(e){}\""
   },
   "jest": {
     "preset": "jest-expo",
@@ -86,6 +87,7 @@
     "expo-crypto": "~55.0.15",
     "expo-dev-client": "^55.0.18",
     "expo-font": "~55.0.8",
+    "expo-haptics": "~55.0.15",
     "expo-linear-gradient": "~55.0.15",
     "expo-linking": "~55.0.8",
     "expo-location": "~55.1.11",

@@ -9,6 +9,7 @@ import { CTA, GlowCard, Press } from '../components/ui'
 import { RARITY_COLOR } from '../features/beasts/beast'
 import { useGame } from '../features/game/game-store'
 import { assetExplorerUrl } from '../features/nft/nft'
+import { failHaptic, winHaptic } from '../features/core/haptics'
 import { useGuardians } from '../features/nft/use-guardians'
 import { colors, fonts, radius } from '../theme'
 
@@ -63,7 +64,7 @@ export default function GuardiansScreen() {
               icon={<Sparkles color={colors.text} size={20} />}
               palette={['#8B5CF6', '#4C1D95']}
               textColor={colors.text}
-              onPress={g.claim}
+              onPress={async () => ((await g.claim()) ? winHaptic() : failHaptic())}
               loading={g.claiming}
               disabled={!g.online || g.pool?.remaining === 0}
               style={{ marginTop: 14 }}

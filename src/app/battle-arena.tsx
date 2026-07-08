@@ -27,6 +27,7 @@ import { useNearby } from '../features/battle/use-nearby'
 import { useSocket } from '../features/battle/use-socket'
 import { requestVrfSeed } from '../features/chain/vrf'
 import { hexSeed, scopeFromString } from '../features/chain/vrf-seed'
+import { failHaptic, hitHaptic, winHaptic } from '../features/core/haptics'
 import { useGame } from '../features/game/game-store'
 import { submitStats } from '../features/nft/nft'
 import { tileAreaKm2 } from '../features/run/use-run-session'
@@ -227,6 +228,7 @@ export default function BattleArena() {
       if (!s || s.over || s.active !== mySideRef.current) return
       const ability = s[s.active].beast.abilities[index]
       if (!ability || ability.energyCost > s[s.active].energy) return
+      hitHaptic()
       if (modeRef.current !== 'bot') transportRef.current.send(encodeBattleMsg({ type: 'move', turn: s.turn, index }))
       setState(resolveMove(s, ability.id))
     },
@@ -277,6 +279,8 @@ export default function BattleArena() {
     if (state?.over && !rewardedRef.current) {
       rewardedRef.current = true
       const won = state.winner === mySideRef.current
+      if (won) winHaptic()
+      else failHaptic()
       game.award(won ? WIN_XP : LOSE_XP)
       game.recordDuel(won)
       // Publish the fresh record to the global leaderboard (fire-and-forget).

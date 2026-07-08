@@ -3,6 +3,7 @@ import { ReactNode, useEffect } from 'react'
 import { ActivityIndicator, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native'
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 
+import { tapHaptic } from '../features/core/haptics'
 import { colors, fonts, gradients, radius } from '../theme'
 
 /**
@@ -41,7 +42,10 @@ export function Press({
       onPress={onPress}
       disabled={disabled}
       hitSlop={hitSlop}
-      onPressIn={() => (scale.value = withSpring(0.965, SPRING))}
+      onPressIn={() => {
+        scale.value = withSpring(0.965, SPRING)
+        tapHaptic()
+      }}
       onPressOut={() => (scale.value = withSpring(1, SPRING))}
       style={[aStyle, style]}
     >
