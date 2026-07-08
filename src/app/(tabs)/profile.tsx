@@ -1,7 +1,7 @@
 import { usePrivy } from '@privy-io/expo'
 import { router } from 'expo-router'
 import * as SecureStore from 'expo-secure-store'
-import { Award, Flame, Footprints, HelpCircle, LogOut, MapPin, Shield } from 'lucide-react-native'
+import { Award, Flame, Footprints, HelpCircle, LogOut, Mail, MapPin, Route, Shield, Swords } from 'lucide-react-native'
 import { ReactNode, useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
@@ -9,11 +9,18 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { getSignerAddress } from '../../features/chain/claim'
 import { levelForXp, useGame } from '../../features/game/game-store'
+import { duelCount, formatKm, rankForLevel } from '../../features/game/stats'
 import { tileAreaKm2 } from '../../features/run/use-run-session'
 import { colors, fonts, radius } from '../../theme'
 
 function short(a?: string) {
   return a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '…'
+}
+
+/** Best-effort email from the Privy user object (guest sessions have none). */
+function privyEmail(user: unknown): string | null {
+  const accounts = (user as { linked_accounts?: { type?: string; address?: string }[] } | null)?.linked_accounts
+  return accounts?.find((a) => a.type === 'email')?.address ?? null
 }
 
 function Stat({ icon, value, label }: { icon: ReactNode; value: string; label: string }) {
@@ -37,11 +44,14 @@ function Badge({ label, unlocked }: { label: string; unlocked: boolean }) {
 
 export default function ProfileScreen() {
   const game = useGame()
-  const { logout } = usePrivy()
+  const { user, logout } = usePrivy()
   const { level } = levelForXp(game.xp)
+  const rank = rankForLevel(level)
   const [addr, setAddr] = useState<string>()
   const tiles = game.tiles.size
   const km2 = tiles * tileAreaKm2(17.4239)
+  const s = game.stats
+  const email = privyEmail(user)
 
   useEffect(() => {
     getSignerAddress().then(setAddr).catch(() => {})
@@ -76,10 +86,18 @@ export default function ProfileScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{game.name}</Text>
-                <Text style={styles.levelLine}>LEVEL {level} EXPLORER</Text>
+                <Text style={[styles.levelLine, { color: rank.color }]}>
+                  {rank.title} · LVL {level}
+                </Text>
                 <View style={styles.rankRow}>
                   <Shield color={colors.territory} size={13} />
                   <Text style={styles.rank}>{short(addr)}</Text>
+                </View>
+                <View style={styles.rankRow}>
+                  <Mail color={email ? colors.primary : colors.textFaint} size={13} />
+                  <Text style={[styles.rank, !email && { color: colors.textFaint }]}>
+                    {email ?? 'Guest — sign in for a Privy wallet'}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -87,6 +105,11 @@ export default function ProfileScreen() {
               <Stat icon={<MapPin color={colors.territory} size={17} />} value={km2.toFixed(2)} label="KM²" />
               <Stat icon={<Footprints color={colors.primary} size={17} />} value={`${tiles}`} label="TILES" />
               <Stat icon={<Flame color={colors.gold} size={17} />} value={`${game.bestStreak}`} label="COMBO" />
+            </View>
+            <View style={[styles.statsRow, { marginTop: 12, paddingTop: 12 }]}>
+              <Stat icon={<Route color={colors.territory} size={17} />} value={formatKm(s.distanceKm)} label="KM RUN" />
+              <Stat icon={<Footprints color={colors.primary} size={17} />} value={`${s.runs}`} label="RUNS" />
+              <Stat icon={<Swords color={colors.enemy} size={17} />} value={`${s.duelsWon}–${s.duelsLost}`} label="DUELS" />
             </View>
           </View>
         </Animated.View>
@@ -101,7 +124,13 @@ export default function ProfileScreen() {
               <Badge label="Combo Master" unlocked={game.bestStreak >= 5} />
               <Badge label="Warlord" unlocked={tiles >= 25} />
               <Badge label="Territory King" unlocked={km2 >= 0.1} />
+              <Badge label="First Blood" unlocked={s.duelsWon >= 1} />
+              <Badge label="Duelist" unlocked={duelCount(s) >= 10} />
+              <Badge label="Pathmaker" unlocked={s.distanceKm >= 10} />
+              <Badge label="Marathoner" unlocked={s.distanceKm >= 42.2} />
+              <Badge label="Summoner" unlocked={s.summons >= 3} />
               <Badge label="Level 5" unlocked={level >= 5} />
+              <Badge label="Sovereign" unlocked={level >= 25} />
             </View>
           </View>
         </Animated.View>
@@ -155,7 +184,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontFamily: fonts.display, fontSize: 28 },
   name: { color: colors.text, fontSize: 22, fontFamily: fonts.display },
-  levelLine: { color: colors.textDim, fontSize: 11, letterSpacing: 1, marginTop: 2 },
+  levelLine: { fontSize: 11, fontFamily: fonts.mono, letterSpacing: 1.5, marginTop: 3 },
   rankRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   rank: { color: colors.textDim, fontSize: 12, fontFamily: fonts.mono },
   statsRow: { flexDirection: 'row', marginTop: 20, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16 },

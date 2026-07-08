@@ -1,21 +1,21 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
-import { Bell, Coins, Flame, Play, Shield, Swords, Trophy } from 'lucide-react-native'
-import { ReactNode } from 'react'
+import { Bell, Play, Shield, Swords } from 'lucide-react-native'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { LevelRing } from '../../components/level-ring'
 import { levelForXp, useGame } from '../../features/game/game-store'
+import { formatKm, formatWinRate, nextRank, rankForLevel } from '../../features/game/stats'
 import { tileAreaKm2 } from '../../features/run/use-run-session'
 import { colors, fonts, radius } from '../../theme'
 
-function MiniStat({ icon, value, label, delay }: { icon: ReactNode; value: string; label: string; delay: number }) {
+function LogCell({ value, label, delay, accent }: { value: string; label: string; delay: number; accent?: string }) {
   return (
-    <Animated.View entering={FadeInDown.delay(delay)} style={styles.miniStat}>
-      {icon}
-      <Text style={styles.miniValue}>{value}</Text>
-      <Text style={styles.miniLabel}>{label}</Text>
+    <Animated.View entering={FadeInDown.delay(delay)} style={styles.logCell}>
+      <Text style={[styles.logValue, accent ? { color: accent } : null]}>{value}</Text>
+      <Text style={styles.logLabel}>{label}</Text>
     </Animated.View>
   )
 }
@@ -23,8 +23,10 @@ function MiniStat({ icon, value, label, delay }: { icon: ReactNode; value: strin
 export default function HomeScreen() {
   const game = useGame()
   const { level, into, need } = levelForXp(game.xp)
-  const pct = Math.min(100, Math.round((into / need) * 100))
+  const rank = rankForLevel(level)
+  const promo = nextRank(level)
   const areaKm2 = game.tiles.size * tileAreaKm2(17.4239)
+  const s = game.stats
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -40,7 +42,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Territory hero */}
+        {/* Command hero: territory + compass level ring */}
         <Animated.View entering={FadeInDown.delay(60)}>
           <View style={styles.hero}>
             <LinearGradient
@@ -49,30 +51,20 @@ export default function HomeScreen() {
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
             />
-            <View style={styles.heroTop}>
-              <View>
+            <View style={styles.heroRow}>
+              <View style={styles.heroLeft}>
+                <View style={[styles.rankPill, { borderColor: rank.color + '66' }]}>
+                  <Text style={[styles.rankText, { color: rank.color }]}>{rank.title}</Text>
+                </View>
                 <Text style={styles.heroArea}>
                   {areaKm2.toFixed(3)} <Text style={styles.heroUnit}>km²</Text>
                 </Text>
-                <Text style={styles.heroLabel}>YOUR TERRITORY · {game.tiles.size} TILES</Text>
+                <Text style={styles.heroLabel}>TERRITORY HELD · {game.tiles.size} TILES</Text>
+                <Text style={styles.xpLine}>
+                  {into}/{need} XP{promo ? `  ·  ${promo.title} AT LVL ${promo.minLevel}` : '  ·  TOP OF THE LADDER'}
+                </Text>
               </View>
-              <View style={[styles.chip, { backgroundColor: game.color, shadowColor: game.color }]} />
-            </View>
-
-            {/* Level progress */}
-            <View style={styles.levelRow}>
-              <Text style={styles.levelText}>LVL {level}</Text>
-              <Text style={styles.levelXp}>
-                {into}/{need} XP
-              </Text>
-            </View>
-            <View style={styles.track}>
-              <LinearGradient
-                colors={['#22D3A6', '#7C3AED']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.fill, { width: `${pct}%` }]}
-              />
+              <LevelRing progress={into / need} level={level} color={rank.color} />
             </View>
           </View>
         </Animated.View>
@@ -92,7 +84,7 @@ export default function HomeScreen() {
           <TouchableOpacity style={styles.action} activeOpacity={0.85} onPress={() => router.push('/guardians')}>
             <Shield color={colors.primary} size={18} />
             <Text style={styles.duelText}>Guardians</Text>
-            <Text style={styles.duelHint}>Your NFT monsters</Text>
+            <Text style={styles.duelHint}>{game.beasts.length} in roster</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.action} activeOpacity={0.85} onPress={() => router.push('/battle')}>
             <Swords color={colors.enemy} size={18} />
@@ -101,11 +93,15 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Mini stats */}
-        <View style={styles.statRow}>
-          <MiniStat icon={<Trophy color={colors.gold} size={20} />} value={`${level}`} label="LEVEL" delay={220} />
-          <MiniStat icon={<Coins color={colors.primary} size={20} />} value={`${game.xp}`} label="$ZORR" delay={280} />
-          <MiniStat icon={<Flame color={colors.enemy} size={20} />} value={`${game.bestStreak}`} label="BEST COMBO" delay={340} />
+        {/* Mission log — lifetime metrics */}
+        <Text style={styles.section}>MISSION LOG</Text>
+        <View style={styles.logGrid}>
+          <LogCell value={`${s.runs}`} label="RUNS" delay={220} />
+          <LogCell value={formatKm(s.distanceKm)} label="KM COVERED" delay={250} />
+          <LogCell value={formatKm(s.longestRunKm)} label="LONGEST KM" delay={280} />
+          <LogCell value={formatWinRate(s)} label="DUEL WIN %" accent={colors.territory} delay={310} />
+          <LogCell value={`${s.duelsWon}–${s.duelsLost}`} label="DUEL RECORD" delay={340} />
+          <LogCell value={`${game.xp}`} label="$ZORR" accent={colors.gold} delay={370} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -133,27 +129,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: 'rgba(255,255,255,0.02)',
-    padding: 22,
+    padding: 20,
     overflow: 'hidden',
   },
-  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 },
-  heroArea: { color: colors.text, fontSize: 40, fontFamily: fonts.display },
-  heroUnit: { fontSize: 20, color: colors.textDim },
-  heroLabel: { color: colors.textDim, fontSize: 11, marginTop: 6, letterSpacing: 1.2 },
-  chip: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 8,
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  heroLeft: { flex: 1 },
+  rankPill: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 10,
   },
-  levelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  levelText: { color: colors.text, fontSize: 12, fontFamily: fonts.mono, letterSpacing: 1 },
-  levelXp: { color: colors.textDim, fontSize: 12, fontFamily: fonts.mono },
-  track: { height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
-  fill: { height: '100%', borderRadius: 4 },
+  rankText: { fontSize: 10, fontFamily: fonts.mono, letterSpacing: 2 },
+  heroArea: { color: colors.text, fontSize: 36, fontFamily: fonts.display },
+  heroUnit: { fontSize: 18, color: colors.textDim },
+  heroLabel: { color: colors.textDim, fontSize: 11, marginTop: 6, letterSpacing: 1.2 },
+  xpLine: { color: colors.textFaint, fontSize: 10, fontFamily: fonts.mono, letterSpacing: 0.5, marginTop: 10 },
   cta: {
     marginTop: 20,
     flexDirection: 'row',
@@ -179,17 +172,19 @@ const styles = StyleSheet.create({
   },
   duelText: { color: colors.text, fontSize: 15, fontWeight: '700' },
   duelHint: { color: colors.textDim, fontSize: 12, marginLeft: 'auto' },
-  statRow: { flexDirection: 'row', gap: 10, marginTop: 22 },
-  miniStat: {
-    flex: 1,
+  section: { color: colors.textFaint, fontSize: 11, letterSpacing: 2, marginTop: 24, marginBottom: 10 },
+  logGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  logCell: {
+    width: '31.5%',
+    flexGrow: 1,
     backgroundColor: 'rgba(255,255,255,0.02)',
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
-    paddingVertical: 18,
+    paddingVertical: 16,
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
-  miniValue: { color: colors.text, fontSize: 20, fontFamily: fonts.display },
-  miniLabel: { color: colors.textFaint, fontSize: 10, letterSpacing: 1 },
+  logValue: { color: colors.text, fontSize: 19, fontFamily: fonts.display },
+  logLabel: { color: colors.textFaint, fontSize: 9, letterSpacing: 1 },
 })

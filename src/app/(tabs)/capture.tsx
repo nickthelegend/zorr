@@ -139,7 +139,11 @@ export default function RunScreen() {
   const nominalLat = fix?.lat ?? 17.4239
   const totalAreaKm2 = game.tiles.size * tileAreaKm2(nominalLat)
 
-  const endRun = useCallback(() => setSummary(run.stop()), [run])
+  const endRun = useCallback(() => {
+    const s = run.stop()
+    game.recordRun(s.distanceKm)
+    setSummary(s)
+  }, [run, game])
 
   const logRun = useCallback(async (s: RunSummary) => {
     setLogging(true)
@@ -256,6 +260,7 @@ export default function RunScreen() {
         {summary ? (
           <RunSummaryCard
             summary={summary}
+            runNo={game.stats.runs}
             xp={summary.tiles.length * 50}
             logging={logging}
             onLog={logRun}
@@ -320,12 +325,14 @@ const RATINGS = ['Easy', 'Solid', 'Brutal'] as const
 
 function RunSummaryCard({
   summary,
+  runNo,
   xp,
   logging,
   onLog,
   onDiscard,
 }: {
   summary: RunSummary
+  runNo: number
   xp: number
   logging: boolean
   onLog: (s: RunSummary) => void
@@ -335,7 +342,7 @@ function RunSummaryCard({
   return (
     <Animated.View entering={FadeInUp} style={styles.summary}>
       <View style={styles.handle} />
-      <Text style={styles.summaryEyebrow}>RUN COMPLETE</Text>
+      <Text style={styles.summaryEyebrow}>{runNo > 0 ? `RUN #${runNo} · COMPLETE` : 'RUN COMPLETE'}</Text>
 
       <View style={styles.summaryHeadRow}>
         <View style={{ flex: 1 }}>

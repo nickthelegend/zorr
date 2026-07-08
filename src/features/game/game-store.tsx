@@ -2,6 +2,14 @@ import * as SecureStore from 'expo-secure-store'
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 import { levelForXp } from './level'
+import {
+  EMPTY_STATS,
+  hydrateStats,
+  recordDuel as statsRecordDuel,
+  recordRun as statsRecordRun,
+  recordSummon as statsRecordSummon,
+  type LifetimeStats,
+} from './stats'
 
 export { levelForXp }
 
@@ -26,6 +34,7 @@ type Persisted = {
   color?: string
   beasts?: string[]
   activeBeast?: string
+  stats?: Partial<LifetimeStats>
 }
 
 type GameState = {
@@ -38,6 +47,7 @@ type GameState = {
   color: string
   beasts: string[]
   activeBeast: string
+  stats: LifetimeStats
   hasTile: (key: string) => boolean
   addCapture: (key: string, combo: number) => number
   award: (xp: number) => void
@@ -45,6 +55,8 @@ type GameState = {
   mintBeast: () => string
   addBeast: (seed: string) => void
   setActiveBeast: (seed: string) => void
+  recordRun: (distanceKm: number) => void
+  recordDuel: (won: boolean) => void
   reset: () => void
 }
 
@@ -59,6 +71,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [color, setColor] = useState<string>(EXPLORER_COLORS[0])
   const [beasts, setBeasts] = useState<string[]>(STARTER_SEEDS)
   const [activeBeast, setActive] = useState<string>(STARTER_SEEDS[0])
+  const [stats, setStats] = useState<LifetimeStats>(EMPTY_STATS)
 
   useEffect(() => {
     ;(async () => {
@@ -74,6 +87,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           const roster = p.beasts?.length ? p.beasts : STARTER_SEEDS
           setBeasts(roster)
           setActive(p.activeBeast && roster.includes(p.activeBeast) ? p.activeBeast : roster[0])
+          setStats(hydrateStats(p.stats))
         }
       } catch {
         // ignore
@@ -86,9 +100,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Auto-persist any change once loaded.
   useEffect(() => {
     if (!ready) return
-    const data: Persisted = { tiles: [...tiles], xp, bestStreak, name, color, beasts, activeBeast }
+    const data: Persisted = { tiles: [...tiles], xp, bestStreak, name, color, beasts, activeBeast, stats }
     SecureStore.setItemAsync(KEY, JSON.stringify(data)).catch(() => {})
-  }, [ready, tiles, xp, bestStreak, name, color, beasts, activeBeast])
+  }, [ready, tiles, xp, bestStreak, name, color, beasts, activeBeast, stats])
 
   const comboRef = useRef(0)
 
@@ -116,6 +130,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       color,
       beasts,
       activeBeast,
+      stats,
       hasTile: (key) => tiles.has(key),
       addCapture,
       award: (amount) => setXp((x) => x + Math.max(0, amount)),
@@ -127,22 +142,27 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const seed = newSeed()
         setBeasts((prev) => [...prev, seed])
         setActive(seed)
+        setStats((s) => statsRecordSummon(s))
         return seed
       },
       addBeast: (seed) => {
         setBeasts((prev) => (prev.includes(seed) ? prev : [...prev, seed]))
         setActive(seed)
+        setStats((s) => statsRecordSummon(s))
       },
       setActiveBeast: (seed) => setActive(seed),
+      recordRun: (distanceKm) => setStats((s) => statsRecordRun(s, distanceKm)),
+      recordDuel: (won) => setStats((s) => statsRecordDuel(s, won)),
       reset: () => {
         setTiles(new Set())
         setXp(0)
         setBestStreak(0)
         setBeasts(STARTER_SEEDS)
         setActive(STARTER_SEEDS[0])
+        setStats(EMPTY_STATS)
       },
     }
-  }, [ready, tiles, xp, bestStreak, name, color, beasts, activeBeast, addCapture])
+  }, [ready, tiles, xp, bestStreak, name, color, beasts, activeBeast, stats, addCapture])
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>
 }

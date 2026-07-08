@@ -212,6 +212,7 @@ export default function BattleArena() {
       rewardedRef.current = true
       setLeft(true)
       game.award(WIN_XP)
+      game.recordDuel(true)
       setPhase('result')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -272,7 +273,9 @@ export default function BattleArena() {
   useEffect(() => {
     if (state?.over && !rewardedRef.current) {
       rewardedRef.current = true
-      game.award(state.winner === mySideRef.current ? WIN_XP : LOSE_XP)
+      const won = state.winner === mySideRef.current
+      game.award(won ? WIN_XP : LOSE_XP)
+      game.recordDuel(won)
       setPhase('result')
     }
   }, [state?.over, state?.winner, game])
