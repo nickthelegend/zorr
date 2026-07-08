@@ -38,6 +38,16 @@ Verifiable randomness from the MagicBlock VRF oracle, on the **same program**. T
   - **Provably-fair summon** — a Guardian's element/rarity/stats derive from a VRF seed, so nobody can grind for Legendaries.
   - **Trustless battle seed** — a peer duel's RNG is seeded by VRF (host-authoritative + on-chain verifiable), replacing the players' nonces. Falls back to the deterministic seed if VRF is unreachable, so play never blocks.
 
+### Real Zorr Beast NFTs — Genesis drop + VRF claim ✅
+
+The Guardians are **real NFTs**, not local data. A Genesis collection of **48 Zorr Beasts** is minted as **Metaplex Core** NFTs on devnet, and players claim them by a **VRF-fair drop**.
+
+- **Collection:** [`76hkTNNZ…TtvJr`](https://explorer.solana.com/address/76hkTNNZguBGc1fg7nKaKZXcbVAy1rrKY5uPFr9TtvJr?cluster=devnet) — 48 Guardians (8 per element; 21 Common / 12 Rare / 12 Epic / 3 Legendary). Art + metadata on **Arweave** (Irys). Each NFT's key trait is its **seed**, so the app derives identical battle stats from chain — one source of truth, no mock (the `nft/` port is verified byte-identical to the app engine).
+- **Distinctive art:** procedural "neon cartography" trading cards (`nft/src/art.mjs`) — a unique seeded constellation + element orb + rarity frame per beast. (Puter AI-art can't run headless — its User-Pays model needs an interactive signed-in browser — so `nft/puter-art-tool.html` lets you regenerate with real AI art on demand.)
+- **The drop = a VRF "contract that sends the NFTs":** `nft/src/claim-relay.mjs` holds the pool; on `POST /claim {owner}` it draws a random unclaimed beast with **MagicBlock VRF** and **transfers that real NFT** to the player. A ledger prevents double-claims.
+- **In the app:** the Guardians screen shows the live pool + your device wallet, and **Claim from Genesis Drop** performs the VRF claim; owned NFTs render from their Arweave card art and are the fighters in duels. **Verified live on device:** claimed "Molten Panther" via VRF → NFT transferred → card rendered → Arena fought with it (stats from the on-chain seed).
+- **Build/run:** `cd nft && npm run curate && npm run mint` (mint the 48), `npm run relay` (drop service). Point `EXPO_PUBLIC_CLAIM_RELAY_URL` at the relay.
+
 ## Guardian duels (NFT monsters) ⚔️
 
 Your captures earn **Guardians** — NFT monsters you battle with, ported from AlgoQuest's beast system (six elements, a type-effectiveness chart, stats, four abilities + Energy Focus, burn/poison). Summon them on the Guardians screen (traits **sealed by MagicBlock VRF** — provably fair) and duel three ways:
@@ -108,9 +118,10 @@ devnet; the ER write path (delegate → gasless capture → commit) lives in `te
 
 Done and verified: onboarding/login (**Privy** email OTP + embedded Solana wallet, or guest),
 GPS + maps + anti-cheat, run sessions, rivals, leaderboard, wallet/profile/settings,
-**real on-chain run logging** (confirmed devnet tx), and **two MagicBlock products** on one deployed
+**real on-chain run logging** (confirmed devnet tx), **two MagicBlock products** on one deployed
 program — **Ephemeral Rollups** (delegated, gasless capture + commit) and **VRF** (verifiable
-randomness for provably-fair summons + trustless battle seeds) — both proven live on devnet.
+randomness) — and **48 real Zorr Beast NFTs** (Metaplex Core, Arweave art) that players **claim via a
+VRF drop** and battle with — all proven live on devnet.
 
 The **Guardian duel** is complete: NFT-monster battles vs a deterministic AI, over **Bluetooth**
 (Google Nearby), and **online** over a room code via the relay. The engine is a deterministic,
