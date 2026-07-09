@@ -1,0 +1,403 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Frame 6 — Duel anywhere · device-surface-showcase (Adapt, static-tour variant) · 1920x1080 · 7.104s
+         Signature kept: the phone surface establishes (edge slide-in + smooth settle) and is HELD as the
+         hero while content advances beside it — the "screens cycling" beat becomes the three mode chips
+         landing one per spoken cue. Camera = slow push-in on the screenshot (ends as the Scene 3 hold begins).
+         Scene windows rescaled x(7.104/7.0): S1 0-1.62 phone up · S2 1.62-4.67 chips on cues · S3 4.67-end wire + glow + hold.
+         No exit (Frame 7 follows). Everything the runtime needs lives INSIDE <template>. -->
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Audiowide";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/Audiowide-Regular.ttf") format("truetype");
+        }
+        @font-face {
+          font-family: "Space Mono";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+        }
+
+        /* Root styled via #root only (scoper drops root-class rules at render).
+           Canvas-locked px throughout — the host slot fixes this frame at 1920x1080. */
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          -webkit-font-smoothing: antialiased;
+          text-rendering: optimizeLegibility;
+        }
+
+        /* Full-bleed ground lives on a clip layer, never on #root. */
+        .duel6-bg {
+          position: absolute;
+          inset: 0;
+          background: #05050b;
+        }
+
+        /* One compass ring (solid + dashed inner) behind the right column — atmosphere only. */
+        .duel6-ring {
+          position: absolute;
+          left: 980px;
+          top: 92px;
+          width: 600px;
+          height: 600px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity;
+        }
+        .duel6-ring::before {
+          content: "";
+          position: absolute;
+          inset: 12%;
+          border: 1px dashed rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+          opacity: 0.8;
+        }
+
+        .duel6-stage {
+          position: absolute;
+          inset: 0;
+        }
+
+        /* ---- Phone hero (left 40%) — minimal device frame per frame.md: 1px hairline, 0 radius,
+                portrait 1080x2400 never stretched. Rest bottom = 851px (above the y=896 keep-out). */
+        .duel6-phone-wrap {
+          position: absolute;
+          left: 196px;
+          top: 74px;
+          width: 362px;
+          height: 777px;
+          will-change: transform, opacity;
+        }
+        /* white-overlay panel echo behind the device (sanctioned "panel behind phone frame"; no shadow) */
+        .duel6-panel {
+          position: absolute;
+          left: 22px;
+          top: -22px;
+          width: 362px;
+          height: 777px;
+          background: rgba(255, 255, 255, 0.04);
+        }
+        .duel6-phone {
+          position: absolute;
+          inset: 0;
+          box-sizing: border-box;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: #0a0a0f;
+          padding: 10px;
+        }
+        .duel6-screen {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          background: #0a0a0f;
+        }
+        /* 340px content width x2.2222 aspect = full screenshot fills the mask exactly (no stretch);
+           the push-in scales it inside the clipped screen. */
+        #duel6-shot {
+          display: block;
+          width: 100%;
+          height: auto;
+          transform-origin: 50% 22%;
+          will-change: transform;
+        }
+
+        /* ---- Right column (x 830+) — label, three mode chips, connector, micro payoff line. */
+        .duel6-label {
+          position: absolute;
+          left: 830px;
+          top: 148px;
+          font-family: "Space Mono", monospace;
+          font-weight: 400;
+          font-size: 15px;
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.62);
+          will-change: transform, opacity;
+        }
+
+        .duel6-chip {
+          position: absolute;
+          left: 830px;
+          width: 620px;
+          height: 78px;
+          box-sizing: border-box;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.04);
+          display: flex;
+          align-items: center;
+          gap: 24px;
+          padding: 0 28px;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity, filter;
+        }
+        #duel6-chip-1 { top: 228px; }
+        #duel6-chip-2 { top: 332px; }
+        #duel6-chip-3 { top: 436px; }
+        .duel6-ord {
+          font-family: "Audiowide", sans-serif;
+          font-weight: 400;
+          font-size: 17px;
+          letter-spacing: 1px;
+          color: rgba(255, 255, 255, 0.62);
+        }
+        .duel6-mode {
+          font-family: "Space Mono", monospace;
+          font-weight: 400;
+          font-size: 28px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          white-space: nowrap;
+          color: #ffffff;
+        }
+
+        /* Connector — one hairline tying the three chips to the micro line (svg-path-draw). */
+        .duel6-wire-svg {
+          position: absolute;
+          left: 786px;
+          top: 251px;
+          width: 72px;
+          height: 356px;
+          overflow: visible;
+        }
+        .duel6-wire-svg path {
+          fill: none;
+          stroke: rgba(255, 255, 255, 0.16);
+          stroke-width: 1.5;
+        }
+
+        .duel6-micro {
+          position: absolute;
+          left: 862px;
+          top: 578px;
+          width: 780px;
+          font-family: "Space Mono", monospace;
+          font-weight: 400;
+          font-size: 19px;
+          line-height: 1.6;
+          color: rgba(255, 255, 255, 0.62);
+          will-change: transform, opacity;
+        }
+        /* keyword-glow target: inline-block so transform applies; driver lerps color/glow/scale */
+        #duel6-kw {
+          display: inline-block;
+          transform-origin: 50% 60%;
+          will-change: transform, text-shadow, color;
+        }
+      </style>
+
+      <div id="root" data-composition-id="06-duel" data-width="1920" data-height="1080">
+        <!-- ground + atmosphere -->
+        <div
+          class="clip duel6-bg"
+          id="duel6-bg"
+          data-start="0"
+          data-duration="7.104"
+          data-track-index="0"
+        >
+          <div class="duel6-ring" id="duel6-ring"></div>
+        </div>
+
+        <!-- stage -->
+        <div
+          class="clip duel6-stage"
+          id="duel6-stage"
+          data-start="0"
+          data-duration="7.104"
+          data-track-index="1"
+        >
+          <!-- Scene 1 — phone-framed arena-duel, both fighter cards held in frame -->
+          <div class="duel6-phone-wrap" id="duel6-phone-wrap" data-layout-allow-overflow>
+            <div class="duel6-panel"></div>
+            <div class="duel6-phone">
+              <div class="duel6-screen" data-layout-allow-overflow>
+                <img id="duel6-shot" src="assets/arena-duel.png" alt="" data-layout-allow-overflow />
+              </div>
+            </div>
+          </div>
+
+          <!-- Scene 2 — three mode chips land one per spoken cue (Space Mono, no accent) -->
+          <div class="duel6-label" id="duel6-label">DUEL · ANYWHERE</div>
+
+          <div class="duel6-chip" id="duel6-chip-1">
+            <span class="duel6-ord">01</span>
+            <span class="duel6-mode">VS AI</span>
+          </div>
+          <div class="duel6-chip" id="duel6-chip-2">
+            <span class="duel6-ord">02</span>
+            <span class="duel6-mode">BLUETOOTH</span>
+          </div>
+          <div class="duel6-chip" id="duel6-chip-3">
+            <span class="duel6-ord">03</span>
+            <span class="duel6-mode">ONLINE · ROOM CODE</span>
+          </div>
+
+          <!-- Scene 3 — hairline connects the chips to the micro payoff line -->
+          <svg class="duel6-wire-svg" viewBox="0 0 72 356" aria-hidden="true">
+            <path id="duel6-wire" d="M20 16 L20 342 L64 342" />
+          </svg>
+
+          <div class="duel6-micro" id="duel6-micro">
+            one <span id="duel6-kw">deterministic</span> engine — only the move index crosses the wire
+          </div>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+        (function () {
+          var D = 7.104;
+
+          // Beat spine, synced to the 7.104s VO ("Then battle it. Versus AI, over Bluetooth,
+          // or online — both phones compute the exact same fight."). Storyboard windows x1.0149.
+          var B = {
+            ring: 0.06, // atmosphere resolves under the entrance
+            phone: 0.04, // "Then battle it." — surface establish (slide up + settle)
+            push: 0.3, // slow push-in on the fight, settles as Scene 3's hold begins
+            label: 1.68, // "Versus" — column eyebrow reveals
+            ai: 2.03, // "AI" — chip 1 slam
+            bt: 3.03, // "Bluetooth" — chip 2 side-snap
+            online: 4.03, // "online" — chip 3 rise
+            wire: 4.7, // "both phones" — connector self-draw (top chip -> micro line)
+            micro: 5.02, // "compute" — payoff line reveals
+            kwStart: 5.45, // "the exact same fight" — keyword glow attack on "deterministic"
+            kwEnd: 6.2, // sustain ends; release decays to a violet rest, then stillness
+          };
+
+          // svg-path-draw setup: measure the connector, park it undrawn (synchronous, pre-seek).
+          var wire = document.getElementById("duel6-wire");
+          var wireLen = wire.getTotalLength();
+          wire.style.strokeDasharray = String(wireLen);
+          wire.style.strokeDashoffset = String(wireLen);
+
+          var tl = gsap.timeline({ paused: true });
+
+          // ---- Scene 1 (0-1.62) — phone slides up into the left 40%, camera holding on the
+          // two fighter cards. Partial travel + fast fade-in (never a full off-screen crawl).
+          tl.fromTo(
+            "#duel6-phone-wrap",
+            { y: 430 },
+            { y: 0, duration: 0.95, ease: "power3.out" },
+            B.phone,
+          );
+          tl.fromTo(
+            "#duel6-phone-wrap",
+            { opacity: 0 },
+            { opacity: 1, duration: 0.32, ease: "power1.out" },
+            B.phone,
+          );
+          tl.fromTo(
+            "#duel6-ring",
+            { opacity: 0, scale: 0.985 },
+            { opacity: 0.5, scale: 1, duration: 0.9, ease: "power2.out" },
+            B.ring,
+          );
+          // Slow push-in on the fight (both fighter cards stay fully in frame at 1.07);
+          // ends at ~4.66 so the Scene 3 held read is dead still.
+          tl.fromTo(
+            "#duel6-shot",
+            { scale: 1 },
+            { scale: 1.07, duration: 4.36, ease: "power1.inOut" },
+            B.push,
+          );
+
+          // ---- Scene 2 (1.62-4.67) — sequential kinetic beat-slams: one chip per spoken cue,
+          // distinct entrance axis/ease per beat, all smooth settles (no overshoot).
+          tl.fromTo(
+            "#duel6-label",
+            { y: 14, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.45, ease: "power2.out" },
+            B.label,
+          );
+          tl.fromTo(
+            "#duel6-chip-1",
+            { scale: 1.32, opacity: 0, filter: "blur(12px)" },
+            { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.5, ease: "power4.out" },
+            B.ai,
+          );
+          tl.fromTo(
+            "#duel6-chip-2",
+            { x: -240, opacity: 0 },
+            { x: 0, opacity: 1, duration: 0.48, ease: "expo.out" },
+            B.bt,
+          );
+          tl.fromTo(
+            "#duel6-chip-3",
+            { y: 84, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.52, ease: "circ.out" },
+            B.online,
+          );
+
+          // ---- Scene 3 (4.67-7.104) — one hairline connects the three chips to the micro line.
+          tl.to(
+            "#duel6-wire",
+            { strokeDashoffset: 0, duration: 0.6, ease: "power2.out" },
+            B.wire,
+          );
+          tl.fromTo(
+            "#duel6-micro",
+            { y: 16, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" },
+            B.micro,
+          );
+
+          // asr-keyword-glow: attack/sustain/release envelope on "deterministic" — the frame's
+          // single accent bloom. Single linear driver; pure function of driver.t (seek-safe).
+          var ATTACK = 0.22;
+          var RELEASE = 0.5;
+          var REST = 0.32;
+          var kwEl = document.getElementById("duel6-kw");
+          function kwEnv(t) {
+            if (t < B.kwStart) return 0;
+            if (t < B.kwEnd) return Math.min((t - B.kwStart) / ATTACK, 1);
+            var releaseEnd = B.kwEnd + RELEASE;
+            if (t < releaseEnd) {
+              var d = (t - B.kwEnd) / RELEASE;
+              return 1 - d * (1 - REST);
+            }
+            return REST; // violet-tinged rest keeps the word marked through the hold
+          }
+          var driver = { t: 0 };
+          tl.to(
+            driver,
+            {
+              t: D,
+              duration: D,
+              ease: "none",
+              onUpdate: function () {
+                var e = kwEnv(driver.t);
+                // rest = text-secondary on the ground (rgb 160,160,162) -> peak = accent #7C3AED
+                function ch(a, b) {
+                  return Math.round(a + (b - a) * e);
+                }
+                kwEl.style.color =
+                  "rgb(" + ch(160, 124) + "," + ch(160, 58) + "," + ch(162, 237) + ")";
+                kwEl.style.textShadow =
+                  "0 0 " + (16 * e).toFixed(1) + "px rgba(124,58,237," + (0.75 * e).toFixed(3) + ")";
+                kwEl.style.transform = "scale(" + (1 + 0.05 * e).toFixed(4) + ")";
+              },
+            },
+            0,
+          );
+
+          // Held read to 7.104s — dead still. No exit (the root transition owns it).
+
+          window.__timelines["06-duel"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

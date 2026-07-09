@@ -1,0 +1,568 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <!-- head is metadata only; the runtime clones <template> contents. -->
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Audiowide";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/Audiowide-Regular.ttf") format("truetype");
+        }
+        @font-face {
+          font-family: "Space Mono";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+        }
+
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden;
+          font-family: "Space Mono", monospace;
+        }
+
+        /* ── full-bleed ground (clip layer, never on #root) ─────────── */
+        .er04-bg {
+          position: absolute;
+          inset: 0;
+          background: #05050b;
+        }
+        .er04-stage {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+
+        /* ── compass geo-ring (atmosphere, 1 per frame) ─────────────── */
+        .er04-ring {
+          position: absolute;
+          left: 104px;
+          top: 190px;
+          width: 560px;
+          height: 560px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+          opacity: 0.45;
+          pointer-events: none;
+        }
+        .er04-ring::before {
+          content: "";
+          position: absolute;
+          inset: 13%;
+          border: 1px dashed rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+        }
+
+        /* ── phone-framed hero (left 40%) ────────────────────────────── */
+        .er04-phone {
+          position: absolute;
+          left: 204px;
+          top: 96px;
+          width: 360px;
+          height: 780px;
+          box-sizing: border-box;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: #0a0a0f;
+          overflow: hidden;
+          filter: url(#er04-streak);
+          will-change: transform, filter;
+        }
+        .er04-shot {
+          display: block;
+          width: 100%;
+          height: auto; /* portrait 1080x2400 — top-anchored crop, never stretched */
+        }
+
+        /* ── typographic pipeline rail (right 60%) ───────────────────── */
+        .er04-rail {
+          position: absolute;
+          left: 850px;
+          top: 0;
+          width: 936px;
+          height: 896px;
+        }
+        .er04-label {
+          position: absolute;
+          top: 126px;
+          left: 0;
+          font-family: "Space Mono", monospace;
+          font-weight: 400;
+          font-size: 14px;
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.62);
+          line-height: 1;
+          will-change: transform, opacity;
+        }
+        .er04-rule {
+          position: absolute;
+          left: 0;
+          right: 0;
+          height: 1px;
+          background: rgba(255, 255, 255, 0.1);
+          transform-origin: 0 50%;
+          will-change: transform;
+        }
+        .er04-ruletop {
+          top: 168px;
+        }
+        .er04-sep1 {
+          top: 336px;
+        }
+        .er04-sep2 {
+          top: 528px;
+        }
+
+        /* one accent glow bloom per frame — behind the ⚡ station only */
+        .er04-glow {
+          position: absolute;
+          left: -120px;
+          right: -120px;
+          top: 312px;
+          height: 240px;
+          background: radial-gradient(
+            closest-side,
+            rgba(124, 58, 237, 0.5),
+            rgba(124, 58, 237, 0) 72%
+          );
+          pointer-events: none;
+          will-change: transform, opacity;
+        }
+
+        .er04-row {
+          position: absolute;
+          left: 0;
+          right: 0;
+          display: flex;
+          align-items: center;
+          gap: 28px;
+        }
+        .er04-row1 {
+          top: 168px;
+          height: 168px;
+        }
+        .er04-row2 {
+          top: 336px;
+          height: 192px;
+        }
+        .er04-row3 {
+          top: 528px;
+          height: 168px;
+        }
+
+        .er04-num {
+          font-family: "Space Mono", monospace;
+          font-weight: 400;
+          font-size: 15px;
+          letter-spacing: 2px;
+          color: rgba(255, 255, 255, 0.62);
+          width: 54px;
+          flex: 0 0 auto;
+          line-height: 1;
+          will-change: transform, opacity;
+        }
+        .er04-word {
+          font-family: "Audiowide", sans-serif;
+          font-weight: 400;
+          font-size: 60px;
+          line-height: 1.1;
+          color: #ffffff;
+          will-change: transform, opacity;
+        }
+        .er04-bolt {
+          display: flex;
+          align-items: center;
+          margin-left: -8px;
+          flex: 0 0 auto;
+          will-change: transform, opacity;
+        }
+        .er04-arrow {
+          display: flex;
+          align-items: center;
+          flex: 0 0 auto;
+          will-change: transform, opacity;
+        }
+
+        .er04-chip {
+          margin-left: auto;
+          flex: 0 0 auto;
+          width: 170px;
+          box-sizing: border-box;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 13px 0;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.04);
+          will-change: transform, opacity;
+        }
+        .er04-ms {
+          font-family: "Space Mono", monospace;
+          font-weight: 400;
+          font-size: 15px;
+          letter-spacing: 1px;
+          line-height: 1;
+          color: #ffffff;
+          font-variant-numeric: tabular-nums;
+        }
+
+        /* program id — micro Space Mono type-on with caret */
+        .er04-pid {
+          position: absolute;
+          top: 742px;
+          left: 0;
+          display: flex;
+          align-items: center;
+          will-change: opacity;
+        }
+        .er04-pidtext {
+          font-family: "Space Mono", monospace;
+          font-weight: 400;
+          font-size: 14px;
+          letter-spacing: 1px;
+          line-height: 1.4;
+          color: rgba(255, 255, 255, 0.62);
+          white-space: nowrap;
+        }
+        .er04-caret {
+          width: 9px;
+          height: 18px;
+          margin-left: 7px;
+          background: rgba(255, 255, 255, 0.7);
+          flex: 0 0 auto;
+        }
+      </style>
+
+      <div
+        id="root"
+        data-composition-id="04-er-captures"
+        data-width="1920"
+        data-height="1080"
+        data-duration="8.735"
+      >
+        <div
+          id="er04-bg"
+          class="clip er04-bg"
+          data-start="0"
+          data-duration="8.235"
+          data-track-index="0"
+        ></div>
+
+        <div
+          id="er04-stage"
+          class="clip er04-stage"
+          data-start="0"
+          data-duration="8.235"
+          data-track-index="1"
+        >
+          <!-- directional motion-blur filter (vertical streak, tweened via proxy) -->
+          <svg width="0" height="0" aria-hidden="true" style="position: absolute">
+            <defs>
+              <filter id="er04-streak" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur id="er04-blur" in="SourceGraphic" stdDeviation="0 0" />
+              </filter>
+            </defs>
+          </svg>
+
+          <div class="er04-ring" id="er04-ring"></div>
+
+          <div class="er04-phone" id="er04-phone" data-layout-allow-overflow>
+            <img class="er04-shot" src="assets/home-console.png" alt="" />
+          </div>
+
+          <div class="er04-rail">
+            <div class="er04-label" id="er04-label">MAGICBLOCK &middot; EPHEMERAL ROLLUPS</div>
+
+            <div class="er04-rule er04-ruletop" id="er04-ruletop"></div>
+            <div class="er04-glow" id="er04-glow" data-layout-allow-overflow></div>
+
+            <div class="er04-row er04-row1">
+              <span class="er04-num er04-t1">01</span>
+              <span class="er04-word er04-t1">delegate</span>
+            </div>
+
+            <div class="er04-rule er04-sep1" id="er04-sep1"></div>
+
+            <div class="er04-row er04-row2">
+              <span class="er04-num er04-t2">02</span>
+              <span class="er04-word er04-t2">capture</span>
+              <span class="er04-bolt er04-t2" aria-hidden="true">
+                <svg width="30" height="44" viewBox="0 0 24 34" fill="none">
+                  <path d="M13 1 L3 19 L10 19 L8 33 L21 13 L14 13 L16 1 Z" fill="#7C3AED" />
+                </svg>
+              </span>
+              <div class="er04-chip" id="er04-chip">
+                <span class="er04-ms" id="er04-ms">~0 ms</span>
+              </div>
+            </div>
+
+            <div class="er04-rule er04-sep2" id="er04-sep2"></div>
+
+            <div class="er04-row er04-row3">
+              <span class="er04-num er04-t3">03</span>
+              <span class="er04-word er04-t3">commit</span>
+              <span class="er04-arrow er04-t3" aria-hidden="true">
+                <svg width="48" height="22" viewBox="0 0 48 22" fill="none">
+                  <line
+                    x1="2"
+                    y1="11"
+                    x2="44"
+                    y2="11"
+                    stroke="rgba(255,255,255,0.55)"
+                    stroke-width="2"
+                  />
+                  <polyline
+                    points="35 3, 44 11, 35 19"
+                    stroke="rgba(255,255,255,0.55)"
+                    stroke-width="2"
+                    fill="none"
+                  />
+                </svg>
+              </span>
+              <span class="er04-word er04-t3">Solana</span>
+            </div>
+
+            <div class="er04-pid" id="er04-pid">
+              <span class="er04-pidtext" id="er04-pidtext"></span>
+              <span class="er04-caret" id="er04-caret"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        (function () {
+          window.__timelines = window.__timelines || {};
+
+          var D = 8.235; // synced VO duration — authoritative
+          var tl = gsap.timeline({ paused: true });
+
+          var phone = document.getElementById("er04-phone");
+          var ring = document.getElementById("er04-ring");
+          var label = document.getElementById("er04-label");
+          var ruleTop = document.getElementById("er04-ruletop");
+          var sep1 = document.getElementById("er04-sep1");
+          var sep2 = document.getElementById("er04-sep2");
+          var glow = document.getElementById("er04-glow");
+          var chip = document.getElementById("er04-chip");
+          var msEl = document.getElementById("er04-ms");
+          var pid = document.getElementById("er04-pid");
+          var pidText = document.getElementById("er04-pidtext");
+          var caret = document.getElementById("er04-caret");
+
+          /* ── base states at build (elements live in the always-mounted stage clip;
+                 later reveals must be hidden from frame 0 on any seek) ── */
+          gsap.set(phone, { y: 620, opacity: 0 });
+          gsap.set(ring, { opacity: 0 });
+          gsap.set(label, { opacity: 0, y: 16 });
+          gsap.set([ruleTop, sep1, sep2], { scaleX: 0 });
+          gsap.set(".er04-t1", { opacity: 0, y: 26 });
+          gsap.set(".er04-t2", { opacity: 0, y: 26 });
+          gsap.set(".er04-t3", { opacity: 0, y: 26 });
+          gsap.set(glow, { opacity: 0, scale: 0.86 });
+          gsap.set(chip, { opacity: 0, y: 14 });
+          gsap.set(pid, { opacity: 0 });
+
+          /* ── Scene 1 (0 – 2.26s) · phone streaks up, label on "gasless" (1.40) ── */
+
+          // motion-blur streak (rule: motion-blur-streak, Path A vertical):
+          // blur proxy seeded so a seek to t=0 shows the streaked start
+          var blurNode = document.getElementById("er04-blur");
+          var blurProxy = { v: 18 };
+          var writeBlur = function () {
+            blurNode.setAttribute("stdDeviation", "0 " + blurProxy.v);
+          };
+          writeBlur();
+
+          tl.fromTo(
+            phone,
+            { y: 620 },
+            { y: 0, duration: 0.68, ease: "power4.out" },
+            0.06
+          );
+          tl.fromTo(
+            phone,
+            { opacity: 0 },
+            { opacity: 1, duration: 0.26, ease: "power1.out" },
+            0.06
+          );
+          // blur envelope locked to the same window + ease → peak blur at peak speed
+          tl.to(
+            blurProxy,
+            { v: 0, duration: 0.68, ease: "power4.out", onUpdate: writeBlur },
+            0.06
+          );
+
+          tl.fromTo(
+            ring,
+            { opacity: 0 },
+            { opacity: 0.45, duration: 0.9, ease: "power2.out" },
+            0.15
+          );
+
+          // macro camera move under the whole shot: slow push-in on the phone hero
+          tl.fromTo(
+            phone,
+            { scale: 1 },
+            { scale: 1.03, duration: D - 1.35, ease: "none" },
+            1.35
+          );
+
+          // "gasless" spoken at 1.40 → label reveals above the right column
+          tl.fromTo(
+            label,
+            { opacity: 0, y: 16 },
+            { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" },
+            1.4
+          );
+          tl.fromTo(
+            ruleTop,
+            { scaleX: 0 },
+            { scaleX: 1, duration: 0.7, ease: "power3.out" },
+            1.5
+          );
+
+          /* ── Scene 2 (2.26 – 5.35s) · rail builds one station per spoken cue ── */
+
+          // "on a MagicBlock" (2.0–3.16) → station 01 delegate
+          tl.fromTo(
+            ".er04-t1",
+            { opacity: 0, y: 26 },
+            { opacity: 1, y: 0, duration: 0.6, ease: "power3.out", stagger: 0.09 },
+            2.05
+          );
+
+          // "Ephemeral Rollup" (3.29–4.56) → station 02 capture ⚡
+          tl.fromTo(
+            sep1,
+            { scaleX: 0 },
+            { scaleX: 1, duration: 0.5, ease: "power2.out" },
+            3.16
+          );
+          tl.fromTo(
+            ".er04-t2",
+            { opacity: 0, y: 26 },
+            { opacity: 1, y: 0, duration: 0.6, ease: "power3.out", stagger: 0.09 },
+            3.32
+          );
+
+          // one accent glow bloom, behind the ⚡ station only — bloom then settle low
+          tl.fromTo(
+            glow,
+            { opacity: 0, scale: 0.86 },
+            { opacity: 0.3, scale: 1, duration: 0.72, ease: "power2.out" },
+            3.34
+          );
+          tl.to(glow, { opacity: 0.15, duration: 0.9, ease: "power2.inOut" }, 4.3);
+
+          // "about a hundred milliseconds" (4.68–6.24) → ~100ms chip counts up
+          tl.fromTo(
+            chip,
+            { opacity: 0, y: 14 },
+            { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
+            4.56
+          );
+          var cnt = { v: 0, fs: 15 };
+          tl.to(
+            cnt,
+            {
+              v: 100,
+              fs: 21,
+              duration: 1.35,
+              ease: "power3.out",
+              onUpdate: function () {
+                msEl.textContent = "~" + Math.round(cnt.v) + " ms";
+                msEl.style.fontSize = cnt.fs + "px";
+              },
+            },
+            4.68
+          );
+
+          /* ── Scene 3 (5.35 – 8.235s) · commit → Solana, program id types on ── */
+
+          // "then commits to Solana" (6.67–8.08) → station 03 commit → Solana
+          tl.fromTo(
+            sep2,
+            { scaleX: 0 },
+            { scaleX: 1, duration: 0.45, ease: "power2.out" },
+            6.62
+          );
+          tl.fromTo(
+            ".er04-t3",
+            { opacity: 0, y: 26 },
+            { opacity: 1, y: 0, duration: 0.6, ease: "power3.out", stagger: 0.09 },
+            6.74
+          );
+
+          // program id types on beneath the rail (smooth-slice type-on, steady)
+          var PID = "BSDY7ZusGE7372ydW7K8BuE8ZoiYumTBrAR9uymPGL1F";
+          tl.fromTo(
+            pid,
+            { opacity: 0 },
+            { opacity: 1, duration: 0.3, ease: "power2.out" },
+            6.92
+          );
+          var typer = { n: 0 };
+          tl.to(
+            typer,
+            {
+              n: PID.length,
+              duration: 1.08,
+              ease: "none",
+              onUpdate: function () {
+                pidText.textContent = PID.substring(0, Math.floor(typer.n));
+              },
+            },
+            7.0
+          );
+
+          // deterministic caret blink (sine driver, no CSS animation)
+          var blink = { b: 0 };
+          tl.to(
+            blink,
+            {
+              b: Math.PI * 2 * 2,
+              duration: D - 6.92,
+              ease: "none",
+              onUpdate: function () {
+                caret.style.opacity = Math.sin(blink.b) >= 0 ? "1" : "0.15";
+              },
+            },
+            6.92
+          );
+
+          // held read: subtle jitter only on the ⚡ chip (bounded, zero at onset)
+          var jit = { p: 0 };
+          tl.to(
+            jit,
+            {
+              p: 12,
+              duration: D - 6.4,
+              ease: "none",
+              onUpdate: function () {
+                gsap.set(chip, {
+                  x: Math.sin(jit.p * 2.8) * 1.1,
+                  y: Math.sin(jit.p * 4.1) * 0.8,
+                });
+              },
+            },
+            6.4
+          );
+
+          window.__timelines["04-er-captures"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

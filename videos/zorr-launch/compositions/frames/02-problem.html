@@ -1,0 +1,223 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Frame 2 — The problem · 6.144s · 1920x1080
+         Everything the runtime needs lives INSIDE <template>; this head is ignored. -->
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Audiowide";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/Audiowide-Regular.ttf") format("truetype");
+        }
+        @font-face {
+          font-family: "Space Mono";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+        }
+
+        /* Root styled via #root (never a class on the composition root). */
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden;
+          container-type: size;
+          font-family: "Audiowide", sans-serif;
+        }
+
+        /* Full-bleed ground lives on a clip layer, never on #root. */
+        #p02-bg {
+          position: absolute;
+          inset: 0;
+          background: #05050b;
+        }
+
+        #p02-stage {
+          position: absolute;
+          inset: 0;
+        }
+
+        /* Two-line pain stack — left-anchored at pad-x (7cqw), upper third.
+           Right ~40% of the frame is deliberately empty. */
+        #p02-stack {
+          position: absolute;
+          left: 7cqw;
+          top: 252px;
+          width: 52cqw;
+          height: 160px;
+          will-change: transform, filter, opacity;
+        }
+        .p02-pain {
+          position: absolute;
+          left: 0;
+          font-family: "Audiowide", sans-serif;
+          font-weight: 400;
+          font-size: 1.8cqw; /* h3 */
+          line-height: 1.1;
+          color: #ffffff;
+          white-space: nowrap;
+          will-change: transform, filter, opacity;
+        }
+        /* line 1 sits at y:+54 (build-time set) for Scene 1, shifts up a step in Scene 2 */
+        #p02-line1 {
+          top: 0;
+        }
+        #p02-line2 {
+          top: 116px;
+          opacity: 0; /* enters on its spoken cue via fromTo */
+        }
+        /* The universal 1px taupe hairline — the only structural device. */
+        #p02-rule {
+          position: absolute;
+          left: 0;
+          top: 78px;
+          width: 100%;
+          height: 0.07cqw;
+          min-height: 1px;
+          background: rgba(255, 255, 255, 0.1);
+          will-change: transform, opacity;
+        }
+
+        /* The sting — lone centered word, Audiowide h2, white. No accent in this frame. */
+        #p02-nothing {
+          position: absolute;
+          left: 0;
+          top: 412px;
+          width: 100%;
+          text-align: center;
+          font-family: "Audiowide", sans-serif;
+          font-weight: 400;
+          font-size: 4cqw; /* h2 */
+          line-height: 1.1;
+          color: #ffffff;
+          opacity: 0; /* arrives on the spoken "nothing." via fromTo */
+          will-change: transform, filter, opacity;
+        }
+      </style>
+
+      <div
+        id="root"
+        data-composition-id="02-problem"
+        data-duration="6.544"
+        data-width="1920"
+        data-height="1080"
+      >
+        <div id="p02-bg" class="clip" data-start="0" data-duration="6.144" data-track-index="0"></div>
+
+        <div id="p02-stage" class="clip" data-start="0" data-duration="6.144" data-track-index="1">
+          <div id="p02-stack">
+            <div id="p02-line1" class="p02-pain">Territory games track your runs.</div>
+            <div id="p02-rule"></div>
+            <div id="p02-line2" class="p02-pain">But your world lives on their servers.</div>
+          </div>
+          <div id="p02-nothing">nothing.</div>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        (() => {
+          window.__timelines = window.__timelines || {};
+          const tl = gsap.timeline({ paused: true });
+
+          /* Beat spine — nominal Scene windows 0–1.8 / 1.8–3.8 / 3.8–6.0 rescaled
+             proportionally to the synced 6.144s duration (x 1.024). */
+          const B = {
+            dim1: 1.843, // Scene 2 opens — VO "But your world…" — line 1 recedes a step
+            slam: 1.9, //   line 2 kinetic beat-slam (one beat), on the spoken cue
+            rule: 2.02, //  hairline draws between the two lines
+            dim2: 3.95, //  Scene 3 — VO "You own" — both lines dim
+            clear: 4.32, // canvas clears: inverse zoom-through exit begins
+            cut: 4.57, //   hard swap at peak blur; "nothing." arrives on its spoken cue
+          };
+
+          /* Build-time initial states (match each fromTo's from-vars — seek-safe). */
+          gsap.set("#p02-line1", { y: 54 }); // Scene 1 resting position (upper third)
+          gsap.set("#p02-rule", { scaleX: 0, transformOrigin: "0% 50%" });
+
+          /* ——— Scene 1 (0–1.843s): line 1 is already on canvas at t=0 (hard-cut in),
+                 dead still. Held cold read — nothing else exists. ——— */
+
+          /* ——— Scene 2 (1.843–3.891s) ——— */
+          /* Line 1 dims to text-secondary (white @ 0.62) and shifts up a step. */
+          tl.fromTo(
+            "#p02-line1",
+            { y: 54, opacity: 1 },
+            { y: 0, opacity: 0.62, duration: 0.55, ease: "power3.out", immediateRender: false },
+            B.dim1,
+          );
+
+          /* Line 2 hard-cuts in beneath — kinetic beat-slam, one beat:
+             scale + blur hit, fast decisive settle, no overshoot. */
+          tl.fromTo(
+            "#p02-line2",
+            { opacity: 0, scale: 1.4, filter: "blur(14px)", transformOrigin: "0% 50%" },
+            {
+              opacity: 1,
+              scale: 1,
+              filter: "blur(0px)",
+              duration: 0.5,
+              ease: "power4.out",
+              immediateRender: false,
+            },
+            B.slam,
+          );
+
+          /* The 1px hairline separates the two. */
+          tl.fromTo(
+            "#p02-rule",
+            { scaleX: 0 },
+            { scaleX: 1, duration: 0.45, ease: "power3.inOut", immediateRender: false },
+            B.rule,
+          );
+
+          /* ——— Scene 3 (3.891–6.144s) ——— */
+          /* Both dim on "You own —". */
+          tl.to("#p02-line1", { opacity: 0.3, duration: 0.45, ease: "power3.out" }, B.dim2);
+          tl.to("#p02-line2", { opacity: 0.45, duration: 0.45, ease: "power3.out" }, B.dim2);
+          tl.to("#p02-rule", { opacity: 0.6, duration: 0.45, ease: "power3.out" }, B.dim2);
+
+          /* Canvas clears — inverse zoom-through EXIT: the stack recedes away
+             (scale + blur on power3.in; opacity linear and separate). */
+          tl.to(
+            "#p02-stack",
+            { scale: 0.85, filter: "blur(10px)", duration: 0.25, ease: "power3.in" },
+            B.clear,
+          );
+          tl.to("#p02-stack", { opacity: 0.12, duration: 0.25, ease: "none" }, B.clear);
+          tl.set("#p02-stack", { opacity: 0 }, B.cut);
+
+          /* Hard cut at peak blur → "nothing." arrives oversized and retracts into
+             the focal plane (inverse zoom-through ENTRY), landing as the word is
+             spoken. Matched at the cut: blur 10px, shrinking direction both sides. */
+          tl.fromTo(
+            "#p02-nothing",
+            { opacity: 0.15, scale: 1.25, filter: "blur(10px)" },
+            {
+              opacity: 1,
+              scale: 1,
+              filter: "blur(0px)",
+              duration: 0.58,
+              ease: "expo.out",
+              immediateRender: false,
+            },
+            B.cut,
+          );
+
+          /* 5.15s → 6.144s: held still read. No exit — the root transition owns it. */
+
+          window.__timelines["02-problem"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

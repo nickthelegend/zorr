@@ -1,0 +1,282 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>09-outro — Zorr launch (source file; runtime clones only the template)</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        /* Fonts ship locally — paths resolve against the host page (project root). */
+        @font-face {
+          font-family: "Audiowide";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/Audiowide-Regular.ttf") format("truetype");
+        }
+        @font-face {
+          font-family: "Space Mono";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+        }
+
+        /* Root styled via #root only (scoper drops root-class rules at render). */
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          container-type: size; /* frame.md container law — all frame units are cqw/cqh */
+        }
+
+        /* Full-bleed ground lives on a clip layer, never on #root. */
+        .bg {
+          position: absolute;
+          inset: 0;
+          background: #05050b;
+        }
+
+        .stage {
+          position: absolute;
+          inset: 0;
+        }
+
+        /* Compass geo-ring — 40cqw (768px), centered on the lockup's optical
+           center at 42.6cqh (y ≈ 460); bottom edge ≈ 844 < 896 caption keep-out. */
+        .geo-ring {
+          position: absolute;
+          left: calc(50% - 20cqw);
+          top: calc(42.6cqh - 20cqw);
+          width: 40cqw;
+          height: 40cqw;
+          display: block;
+        }
+
+        /* Chrome label — Space Mono uppercase, tracked, text-secondary. */
+        .eyebrow {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 31.1cqh;
+          text-align: center;
+          padding-left: 3px; /* optical centering vs trailing letter-space */
+          font-family: "Space Mono", monospace;
+          font-weight: 400;
+          font-size: 14px;
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          line-height: 1;
+          color: rgba(255, 255, 255, 0.62);
+          opacity: 0; /* fromTo reveals on the "open source" VO cue */
+        }
+
+        /* ZORR — Audiowide h2 (4cqw), text-primary, dead-center of the ring. */
+        .wordmark {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 38.85cqh;
+          text-align: center;
+          padding-left: 0.32cqw; /* optical centering vs trailing letter-space */
+          font-family: "Audiowide", sans-serif;
+          font-weight: 400;
+          font-size: 4cqw;
+          line-height: 1.06;
+          letter-spacing: 0.08em;
+          color: #ffffff;
+          opacity: 0; /* soft fade only — "it simply is" */
+        }
+
+        /* Typed URL — left-anchored inside a fixed 29ch box so the caret
+           advances rightward and the finished line sits centered (no re-center
+           jitter — fixed-width container per discrete-text-sequence). */
+        .url-row {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 51.4cqh;
+          display: flex;
+          justify-content: center;
+        }
+        .url-line {
+          width: 29ch; /* exact width of "github.com/nickthelegend/zorr" */
+          font-family: "Space Mono", monospace;
+          font-weight: 400;
+          font-size: 1.7cqw; /* ≥ 1.4cqw legibility floor — this line is the payoff */
+          line-height: 1.4;
+          color: #ffffff;
+          text-align: left;
+          white-space: pre;
+        }
+        /* Accent-violet block caret — deterministic timeline-driven blink,
+           no CSS animation (context-sensitive-cursor mechanics). */
+        .url-caret {
+          display: inline-block;
+          width: 0.62cqw;
+          height: 1.8cqw;
+          margin-left: 0.2cqw;
+          vertical-align: -0.35cqw;
+          background: #7c3aed;
+          opacity: 0;
+        }
+      </style>
+
+      <div id="root" data-composition-id="09-outro" data-width="1920" data-height="1080">
+        <div class="bg clip" data-start="0" data-duration="3.648" data-track-index="0"></div>
+
+        <div class="stage clip" data-start="0" data-duration="3.648" data-track-index="1">
+          <!-- Compass geo-ring: solid outer + dashed inner (~76%), both self-draw
+               from 12 o'clock (rotate -90). Dashed ring reveals through a mask arc
+               so the dash pattern itself is preserved while it "draws". -->
+          <svg class="geo-ring" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <mask id="o9-ring-mask">
+                <circle
+                  id="o9-mask-arc"
+                  cx="400"
+                  cy="400"
+                  r="304"
+                  fill="none"
+                  stroke="#ffffff"
+                  stroke-width="10"
+                  transform="rotate(-90 400 400)"
+                />
+              </mask>
+            </defs>
+            <circle
+              id="o9-ring-solid"
+              cx="400"
+              cy="400"
+              r="398"
+              fill="none"
+              stroke="#ffffff"
+              stroke-opacity="0.18"
+              stroke-width="1.2"
+              transform="rotate(-90 400 400)"
+            />
+            <circle
+              id="o9-ring-dashed"
+              cx="400"
+              cy="400"
+              r="304"
+              fill="none"
+              stroke="#ffffff"
+              stroke-opacity="0.13"
+              stroke-width="1.2"
+              stroke-dasharray="3 14"
+              mask="url(#o9-ring-mask)"
+              transform="rotate(-90 400 400)"
+            />
+          </svg>
+
+          <div class="eyebrow" id="o9-eyebrow">Open source</div>
+          <div class="wordmark" id="o9-wordmark">ZORR</div>
+
+          <div class="url-row">
+            <div class="url-line"><span id="o9-url-text"></span><span class="url-caret" id="o9-caret"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+
+        // Synced frame duration (authoritative). Storyboard 6.0s scenes rescaled ×0.608:
+        //   Scene 1  0.000–0.912  mark soft-fades in; compass ring self-draws
+        //   Scene 2  0.912–2.736  URL types on with caret as the VO reads the address
+        //   Scene 3  2.736–3.648  perfect stillness; caret blinks twice more, stops
+        var DUR = 3.648;
+        var URL_TEXT = "github.com/nickthelegend/zorr";
+        var TYPE_START = 0.96; // VO: "on GitHub" ≈ 1.0–1.9s — "github.com" types under it
+        var TYPE_DUR = 1.8; // 29 chars × ~62ms — steady, backspace-free
+
+        // svg-path-draw: dash pattern = measured length, offset animates to 0.
+        var solidRing = document.getElementById("o9-ring-solid");
+        var maskArc = document.getElementById("o9-mask-arc");
+        [solidRing, maskArc].forEach(function (p) {
+          var L = p.getTotalLength();
+          p.style.strokeDasharray = String(L);
+          p.style.strokeDashoffset = String(L);
+        });
+
+        var urlTextEl = document.getElementById("o9-url-text");
+        var caretEl = document.getElementById("o9-caret");
+
+        var tl = gsap.timeline({ paused: true });
+
+        // ---- Scene 1 — the mark simply is (soft fade, no movement) + ring draw ----
+        tl.fromTo(
+          "#o9-wordmark",
+          { opacity: 0 },
+          { opacity: 1, duration: 0.45, ease: "power2.out" },
+          0
+        );
+        // "OPEN SOURCE" chrome label lands on its spoken cue (~0.13s).
+        tl.fromTo(
+          "#o9-eyebrow",
+          { opacity: 0 },
+          { opacity: 1, duration: 0.5, ease: "power2.out" },
+          0.18
+        );
+        // Constant-speed compass trace (ease none — a pen on a compass, no settle).
+        tl.to(solidRing, { strokeDashoffset: 0, duration: 1.3, ease: "none" }, 0.05);
+        // Dashed inner ring completes its draw quietly under the typing.
+        tl.to(maskArc, { strokeDashoffset: 0, duration: 1.6, ease: "none" }, 0.35);
+
+        // ---- Scene 2 — URL types on (smooth character slice, steady) ----
+        var typeDriver = { n: 0 };
+        tl.to(
+          typeDriver,
+          {
+            n: URL_TEXT.length,
+            duration: TYPE_DUR,
+            ease: "none",
+            onUpdate: function () {
+              urlTextEl.textContent = URL_TEXT.slice(0, Math.floor(typeDriver.n));
+            },
+          },
+          TYPE_START
+        );
+
+        // ---- Caret — discrete deterministic schedule (no CSS animation) ----
+        // Appears just before typing, one anticipation blink, solid through the
+        // type-on, then (Scene 3) blinks twice more and stops — rests solid.
+        var CARET_SCHED = [
+          [0.0, 0],
+          [0.64, 1],
+          [0.82, 0],
+          [0.96, 1],
+          [2.86, 0],
+          [3.06, 1],
+          [3.26, 0],
+          [3.46, 1],
+        ];
+        var caretDriver = { t: 0 };
+        tl.to(
+          caretDriver,
+          {
+            t: DUR,
+            duration: DUR,
+            ease: "none",
+            onUpdate: function () {
+              var o = 0;
+              for (var i = CARET_SCHED.length - 1; i >= 0; i--) {
+                if (caretDriver.t >= CARET_SCHED[i][0]) {
+                  o = CARET_SCHED[i][1];
+                  break;
+                }
+              }
+              caretEl.style.opacity = String(o);
+            },
+          },
+          0
+        );
+
+        window.__timelines["09-outro"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

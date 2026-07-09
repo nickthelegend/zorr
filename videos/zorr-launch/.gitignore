@@ -1,0 +1,13 @@
+# Derived / heavy artifacts — the shipped video lives in ../../docs/zorr-launch.mp4
+node_modules/
+renders/
+snapshots/
+capture/
+
+# Regenerable audio binaries (re-run scripts/audio.mjs to rebuild)
+assets/voice/
+assets/bgm/
+assets/sfx/
+
+# Keep as provenance: STORYBOARD.md, SCRIPT.md, frame.md, compositions/, index.html,
+# audio_meta.json, caption_groups.json, assets/*.png (source screenshots), assets/fonts/

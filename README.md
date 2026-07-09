@@ -14,6 +14,16 @@ Built for **Solana Blitz v6 (MagicBlock) · Mobile track**
 ![NFTs](https://img.shields.io/badge/Metaplex%20Core-48%20Genesis%20NFTs-14F195)
 ![Tests](https://img.shields.io/badge/tests-64%20passing-22D3A6)
 
+<br/>
+
+### ▶ [Watch the 60-second launch video](https://github.com/nickthelegend/zorr/raw/main/docs/zorr-launch.mp4)
+
+[![Zorr — 60-second product launch video](docs/screens/launch-poster.png)](https://github.com/nickthelegend/zorr/raw/main/docs/zorr-launch.mp4)
+
+<sub>Real in-app UI, phone-framed · MagicBlock ER + VRF · deterministic PvP · live leaderboard — narrated, 48s. Click to play.</sub>
+
+<br/>
+
 | Empire map | Command console | Genesis claim | Guardian duel |
 |---|---|---|---|
 | ![map](docs/screens/map-empires.png) | ![home](docs/screens/home-console.png) | ![claim](docs/screens/genesis-claim.png) | ![duel](docs/screens/arena-duel.png) |

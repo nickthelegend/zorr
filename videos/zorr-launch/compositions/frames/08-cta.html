@@ -1,0 +1,279 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Frame 8 — CTA · kinetic-type-beats (CTA variant) · 1920x1080 · 2.219s
+         Compressed: mark pop -> three mantra beat-slams -> token swap -> hairline + URL + chip press.
+         No exit (Frame 9 follows). Everything the runtime needs lives INSIDE <template>. -->
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Audiowide";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/Audiowide-Regular.ttf") format("truetype");
+        }
+        @font-face {
+          font-family: "Space Mono";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+        }
+
+        /* Root styled via #root only (scoper drops root-class rules at render). */
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          container-type: size;
+          -webkit-font-smoothing: antialiased;
+          text-rendering: optimizeLegibility;
+        }
+
+        /* Full-bleed ground lives on a clip layer, never on #root. */
+        .cta8-bg {
+          position: absolute;
+          inset: 0;
+          background: #05050b;
+        }
+
+        .cta8-stage {
+          position: absolute;
+          inset: 0;
+        }
+
+        /* One compass ring (solid + dashed inner), centered behind the column.
+           Positioned with calc() — no CSS transform on a GSAP-animated element. */
+        .cta8-ring {
+          position: absolute;
+          width: 40cqw;
+          height: 40cqw;
+          left: calc(50% - 20cqw);
+          top: 6.1cqh;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity;
+        }
+        .cta8-ring::before {
+          content: "";
+          position: absolute;
+          inset: 12%;
+          border: 1px dashed rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+          opacity: 0.8;
+        }
+
+        /* Centered column — all content stays above the y=896 caption keep-out. */
+        .cta8-col {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding-top: 18.5cqh;
+        }
+
+        .cta8-mark {
+          font-family: "Audiowide", sans-serif;
+          font-weight: 400;
+          font-size: 6.2cqw;
+          line-height: 1.06;
+          letter-spacing: 0.04em;
+          color: #ffffff;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity;
+        }
+
+        .cta8-mantra {
+          margin-top: 3.2cqh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.55cqh;
+        }
+        .cta8-beat {
+          font-family: "Audiowide", sans-serif;
+          font-weight: 400;
+          font-size: 4cqw;
+          line-height: 1.12;
+          color: #ffffff;
+          white-space: nowrap;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity, filter;
+        }
+
+        /* URL shelf — Space Mono line over the system hairline. */
+        .cta8-url {
+          margin-top: 4.4cqh;
+          font-family: "Space Mono", monospace;
+          font-weight: 400;
+          font-size: 1.5cqw;
+          line-height: 1.2;
+          letter-spacing: 0.02em;
+          color: rgba(255, 255, 255, 0.62);
+          white-space: nowrap;
+          will-change: transform, opacity;
+        }
+        /* The one accent use: a flat violet block behind "zorr" that takes the press.
+           Zero radius, zero shadow (cartesian: flat, circles-only exception). */
+        .cta8-chip {
+          display: inline-block;
+          background: #7c3aed;
+          color: #ffffff;
+          padding: 0.08em 0.38em;
+          margin-left: 0.08em;
+          transform-origin: 50% 50%;
+          will-change: transform;
+        }
+
+        .cta8-rulewrap {
+          margin-top: 1.1cqh;
+          display: block;
+          width: 34cqw;
+          height: 2px;
+          overflow: visible;
+        }
+        .cta8-rulewrap line {
+          stroke: rgba(255, 255, 255, 0.1);
+          stroke-width: 1.4;
+          fill: none;
+        }
+      </style>
+
+      <div id="root" data-composition-id="08-cta" data-width="1920" data-height="1080">
+        <!-- ground -->
+        <div
+          class="clip cta8-bg"
+          id="cta8-bg"
+          data-start="0"
+          data-duration="2.219"
+          data-track-index="0"
+        ></div>
+
+        <!-- stage -->
+        <div
+          class="clip cta8-stage"
+          id="cta8-stage"
+          data-start="0"
+          data-duration="2.219"
+          data-track-index="1"
+        >
+          <div class="cta8-ring" id="cta8-ring"></div>
+
+          <div class="cta8-col">
+            <div class="cta8-mark" id="cta8-mark">ZORR</div>
+
+            <div class="cta8-mantra">
+              <div class="cta8-beat" id="cta8-w1">WALK.</div>
+              <div class="cta8-beat" id="cta8-w2">CAPTURE.</div>
+              <div class="cta8-beat" id="cta8-w3">OWN THE <span id="cta8-tok-map">MAP.</span></div>
+            </div>
+
+            <div class="cta8-url" id="cta8-url">
+              github.com/nickthelegend/<span class="cta8-chip" id="cta8-chip">zorr</span>
+            </div>
+            <svg
+              class="cta8-rulewrap"
+              viewBox="0 0 653 2"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <line id="cta8-rule-line" x1="0" y1="1" x2="653" y2="1" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+        (function () {
+          // Beat spine — the synced 2.219s VO compressed: "Zorr. Walk. Capture. Own the map."
+          var B = {
+            ring: 0.0, // ground breathes in
+            mark: 0.02, // "Zorr."
+            walk: 0.58, // "Walk."
+            capture: 0.98, // "Capture."
+            own: 1.42, // "Own the map."
+            swap: 1.78, // "map" lands -> token snaps to accent (hard cut)
+            rule: 1.58, // hairline self-draws under the finale
+            url: 1.8, // URL reveals immediately after (outro holds it longer)
+            press: 2.02, // single ui-click on the zorr chip
+          };
+
+          // svg-path-draw setup: measure the hairline, park it undrawn (synchronous, pre-seek).
+          var ruleLine = document.getElementById("cta8-rule-line");
+          var ruleLen = ruleLine.getTotalLength();
+          ruleLine.style.strokeDasharray = String(ruleLen);
+          ruleLine.style.strokeDashoffset = String(ruleLen);
+
+          var tl = gsap.timeline({ paused: true });
+
+          // ---- Scene 1 (compressed 0.0–0.55) — ZORR spring-pops over the faint ring.
+          // spring-pop-entrance: fromTo scale 0 -> 1 on power3.out (smooth settle, no overshoot).
+          tl.fromTo(
+            "#cta8-ring",
+            { opacity: 0, scale: 0.96 },
+            { opacity: 0.32, scale: 1, duration: 0.7, ease: "power2.out" },
+            B.ring,
+          );
+          tl.fromTo(
+            "#cta8-mark",
+            { scale: 0, opacity: 0 },
+            { scale: 1, opacity: 1, duration: 0.5, ease: "power3.out" },
+            B.mark,
+          );
+
+          // ---- Scene 2 (0.55–1.8) — mantra kinetic beat-slams, one distinct entrance per beat.
+          // kinetic-beat-slam: shared beat array, three distinct ease/axis pairs, short attacks.
+          tl.fromTo(
+            "#cta8-w1",
+            { scale: 1.45, opacity: 0, filter: "blur(12px)" },
+            { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.32, ease: "power4.out" },
+            B.walk,
+          );
+          tl.fromTo(
+            "#cta8-w2",
+            { x: -180, opacity: 0 },
+            { x: 0, opacity: 1, duration: 0.3, ease: "expo.out" },
+            B.capture,
+          );
+          tl.fromTo(
+            "#cta8-w3",
+            { y: 64, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.34, ease: "circ.out" },
+            B.own,
+          );
+          // In-place token cycle: instant hard cut of the final token to accent violet.
+          tl.set("#cta8-tok-map", { color: "#7c3aed" }, B.swap);
+
+          // ---- Scene 3 (1.58–2.2) — hairline draws, URL reveals on it, chip presses once.
+          tl.to(
+            "#cta8-rule-line",
+            { strokeDashoffset: 0, duration: 0.3, ease: "power2.out" },
+            B.rule,
+          );
+          tl.fromTo(
+            "#cta8-url",
+            { y: 14, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.22, ease: "power3.out" },
+            B.url,
+          );
+          // press-release chain: linear press, then state-continuous smooth recovery
+          // (release starts exactly where the press ends; no overshoot per video direction).
+          tl.to("#cta8-chip", { scale: 0.93, duration: 0.06, ease: "power1.in" }, B.press);
+          tl.to("#cta8-chip", { scale: 1, duration: 0.12, ease: "power3.out" }, B.press + 0.06);
+
+          // End-card holds dead static through 2.219s — no exit (Frame 9 follows).
+
+          window.__timelines["08-cta"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,383 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Frame 7 — Real, everywhere. blueprint: grid-card-assemble (triptych cascade → held read).
+         Everything the runtime needs lives INSIDE <template>. -->
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Audiowide";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/Audiowide-Regular.ttf") format("truetype");
+        }
+        @font-face {
+          font-family: "Space Mono";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+        }
+
+        /* Root styled via #root only — never a class on the composition root. */
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden;
+          font-family: "Space Mono", monospace;
+        }
+
+        /* Full-bleed ground is a clip layer, never a background on #root. */
+        .p7-bg {
+          position: absolute;
+          inset: 0;
+          background: #05050b;
+        }
+
+        .p7-stage {
+          position: absolute;
+          inset: 0;
+        }
+
+        /* — compass-construction ring (1 per frame), solid + dashed inner — */
+        .p7-ring {
+          position: absolute;
+          left: 620px;
+          top: 90px;
+          width: 680px;
+          height: 680px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+          opacity: 0.22;
+        }
+        .p7-ring::before {
+          content: "";
+          position: absolute;
+          inset: 12%;
+          border: 1px dashed rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+        }
+
+        /* — eyebrow label — */
+        .p7-eyebrow {
+          position: absolute;
+          left: 0;
+          top: 66px;
+          width: 100%;
+          text-align: center;
+          font-size: 14px;
+          font-weight: 400;
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.62);
+        }
+
+        /* — phone frames: 1px hairline bezel, 0 radius, never stretched — */
+        .p7-phone {
+          position: absolute;
+          box-sizing: border-box;
+          background: #0a0a0f;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          padding: 8px;
+          will-change: transform;
+        }
+        .p7-screen {
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          background: #000000;
+        }
+        .p7-screen img {
+          display: block;
+          width: 100%;
+          height: auto; /* aspect preserved — top-anchored crop, no stretch */
+        }
+
+        /* left (wallet) + right (profile): 278×538 outer → 260×520 mask */
+        .p7-phone-wallet {
+          left: 450px;
+          top: 252px;
+          width: 278px;
+          height: 538px;
+        }
+        .p7-phone-profile {
+          left: 1192px;
+          top: 252px;
+          width: 278px;
+          height: 538px;
+        }
+        /* center (leaderboard) — tallest, hero: 314×658 outer → 296×640 mask */
+        .p7-phone-board {
+          left: 803px;
+          top: 132px;
+          width: 314px;
+          height: 658px;
+        }
+
+        /* — museum-plaque captions: hairline + Space Mono line beneath each phone — */
+        .p7-rule {
+          position: absolute;
+          top: 806px;
+          height: 1px;
+          background: rgba(255, 255, 255, 0.1);
+          transform-origin: left center;
+          will-change: transform;
+        }
+        .p7-rule-wallet {
+          left: 450px;
+          width: 278px;
+        }
+        .p7-rule-profile {
+          left: 1192px;
+          width: 278px;
+        }
+        .p7-rule-board {
+          left: 803px;
+          width: 314px;
+        }
+
+        .p7-cap {
+          position: absolute;
+          top: 822px;
+          text-align: center;
+          font-size: 25px;
+          font-weight: 400;
+          letter-spacing: 4px;
+          text-transform: uppercase;
+          line-height: 1.2;
+          color: rgba(255, 255, 255, 0.62);
+        }
+        .p7-cap-wallet {
+          left: 450px;
+          width: 278px;
+        }
+        .p7-cap-profile {
+          left: 1192px;
+          width: 278px;
+        }
+        .p7-cap-board {
+          left: 803px;
+          width: 314px;
+        }
+
+        /* per-character spans for the one keyword-glow sweep (accent) */
+        .p7-char {
+          display: inline-block;
+          color: rgba(255, 255, 255, 0.62);
+          will-change: transform, text-shadow;
+        }
+      </style>
+
+      <div
+        id="root"
+        data-composition-id="07-proof"
+        data-width="1920"
+        data-height="1080"
+        data-duration="6.928"
+      >
+        <!-- ground -->
+        <div
+          class="clip p7-bg"
+          data-start="0"
+          data-duration="6.528"
+          data-track-index="0"
+        ></div>
+
+        <!-- content: triptych assemble -->
+        <div
+          class="clip p7-stage"
+          data-start="0"
+          data-duration="6.528"
+          data-track-index="1"
+        >
+          <!-- depth layer 1 — atmosphere -->
+          <div class="p7-ring"></div>
+
+          <div class="p7-eyebrow">Real &middot; Everywhere</div>
+
+          <!-- depth layer 2 — side evidence -->
+          <div class="p7-phone p7-phone-wallet">
+            <div class="p7-screen">
+              <img src="assets/wallet.png" alt="" />
+            </div>
+          </div>
+          <div class="p7-phone p7-phone-profile">
+            <div class="p7-screen">
+              <img src="assets/profile.png" alt="" />
+            </div>
+          </div>
+
+          <!-- depth layer 3 — hero, dead-center, tallest -->
+          <div class="p7-phone p7-phone-board">
+            <div class="p7-screen">
+              <img src="assets/leaderboard-real.png" alt="" />
+            </div>
+          </div>
+
+          <!-- plaques -->
+          <div class="p7-rule p7-rule-wallet"></div>
+          <div class="p7-cap p7-cap-wallet">REAL NFTS</div>
+
+          <div class="p7-rule p7-rule-profile"></div>
+          <div class="p7-cap p7-cap-profile">REAL RANKS</div>
+
+          <div class="p7-rule p7-rule-board"></div>
+          <div class="p7-cap p7-cap-board"
+            ><span class="p7-char">R</span><span class="p7-char">E</span><span
+              class="p7-char"
+              >A</span
+            ><span class="p7-char">L</span><span class="p7-gap">&nbsp;</span><span
+              class="p7-char"
+              >D</span
+            ><span class="p7-char">E</span><span class="p7-char">V</span><span
+              class="p7-char"
+              >I</span
+            ><span class="p7-char">C</span><span class="p7-char">E</span><span
+              class="p7-char"
+              >S</span
+            ></div
+          >
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        (function () {
+          window.__timelines = window.__timelines || {};
+          var tl = gsap.timeline({ paused: true });
+          var R = document.querySelector('[data-composition-id="07-proof"]');
+          var q = function (sel) {
+            return R.querySelector(sel);
+          };
+
+          var EASE = "power3.out"; // long-tail settle — no bounce, no overshoot
+
+          /* ground atmosphere breathes in once, then holds */
+          tl.fromTo(
+            q(".p7-ring"),
+            { opacity: 0 },
+            { opacity: 0.22, duration: 1.4, ease: "power2.out" },
+            0.0
+          );
+          tl.fromTo(
+            q(".p7-eyebrow"),
+            { opacity: 0, y: -14 },
+            { opacity: 1, y: 0, duration: 0.7, ease: EASE },
+            0.12
+          );
+
+          /* ————— Scene 1 (0.0–1.68s) · "Real NFTs" — wallet rises left-of-center.
+             grid-card-assemble: fade + short slide directly into slot (no scatter). */
+          tl.fromTo(
+            q(".p7-phone-wallet"),
+            { opacity: 0, y: 96 },
+            { opacity: 1, y: 0, duration: 0.9, ease: EASE },
+            0.1
+          );
+          tl.fromTo(
+            q(".p7-rule-wallet"),
+            { scaleX: 0 },
+            { scaleX: 1, duration: 0.55, ease: EASE },
+            0.62
+          );
+          tl.fromTo(
+            q(".p7-cap-wallet"),
+            { opacity: 0, y: 14 },
+            { opacity: 1, y: 0, duration: 0.55, ease: EASE },
+            0.74
+          );
+
+          /* ————— Scene 2 (1.68–3.36s) · "Real players" — profile rises right-of-center;
+             the triptych balances. */
+          tl.fromTo(
+            q(".p7-phone-profile"),
+            { opacity: 0, y: 96 },
+            { opacity: 1, y: 0, duration: 0.9, ease: EASE },
+            1.68
+          );
+          tl.fromTo(
+            q(".p7-rule-profile"),
+            { scaleX: 0 },
+            { scaleX: 1, duration: 0.55, ease: EASE },
+            2.2
+          );
+          tl.fromTo(
+            q(".p7-cap-profile"),
+            { opacity: 0, y: 14 },
+            { opacity: 1, y: 0, duration: 0.55, ease: EASE },
+            2.32
+          );
+
+          /* ————— Scene 3 (3.36–6.528s) · "live leaderboard" — hero rises dead-center,
+             slightly taller (hierarchy by size + position). */
+          tl.fromTo(
+            q(".p7-phone-board"),
+            { opacity: 0, y: 112 },
+            { opacity: 1, y: 0, duration: 1.05, ease: EASE },
+            3.36
+          );
+          tl.fromTo(
+            q(".p7-rule-board"),
+            { scaleX: 0 },
+            { scaleX: 1, duration: 0.55, ease: EASE },
+            3.94
+          );
+          tl.fromTo(
+            q(".p7-cap-board"),
+            { opacity: 0, y: 14 },
+            { opacity: 1, y: 0, duration: 0.55, ease: EASE },
+            4.06
+          );
+
+          /* On the final "real device" — the one accent bloom of the frame:
+             keyword glow sweeps REAL DEVICES once, left→right (attack → release
+             to a rest level), then everything holds deliberately still. */
+          var DIM = "rgba(255,255,255,0.62)";
+          var SHADOW_OFF =
+            "0 0 0px rgba(124,58,237,0), 0 0 0px rgba(124,58,237,0)";
+          var SHADOW_PEAK =
+            "0 0 16px rgba(124,58,237,0.9), 0 0 40px rgba(124,58,237,0.5)";
+          var SHADOW_REST =
+            "0 0 9px rgba(124,58,237,0.3), 0 0 22px rgba(124,58,237,0.12)";
+          var chars = R.querySelectorAll(".p7-char");
+          chars.forEach(function (el, i) {
+            var at = 5.28 + i * 0.045;
+            tl.fromTo(
+              el,
+              { color: DIM, scale: 1, textShadow: SHADOW_OFF },
+              {
+                color: "#FFFFFF",
+                scale: 1.14,
+                textShadow: SHADOW_PEAK,
+                duration: 0.16,
+                ease: "power2.out",
+              },
+              at
+            );
+            tl.to(
+              el,
+              {
+                color: "rgba(255,255,255,0.92)",
+                scale: 1,
+                textShadow: SHADOW_REST,
+                duration: 0.5,
+                ease: "power2.inOut",
+              },
+              at + 0.16
+            );
+          });
+
+          /* Full held triptych read to the end — no exit (non-final frame). */
+
+          window.__timelines["07-proof"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

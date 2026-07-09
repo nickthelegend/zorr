@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- head is source-file metadata only; the runtime clones ONLY <template> contents -->
+  </head>
+  <body>
+    <template>
+      <!--
+        Frame 1 — Hook · "Your city — is the game board." · 1.941s · 1920x1080
+        Blueprint: kinetic-type-beats (sub-shape A — fixed-line token swap, camera-locked)
+        VO word cues (whisper, assets/voice/01.wav):
+          Your 0.07 · city 0.28 · [dash pause 0.62–0.76] · game 0.93 · board 1.19–1.65
+        Scene windows (storyboard 4.5s draft rescaled x0.4313 into 1.941s):
+          S1 0.00–0.69  per-word staggered reveal of "Your city"
+          S2 0.69–1.38  hairline self-draws under the line; hard-cut token swap
+                        city -> accent "game board" + keyword glow (the beat)
+          S3 1.38–1.941 held read, dead still; dashed inner geo-ring completes self-draw
+        Captions enabled: all content kept above y=896px (ring bottom ~880px).
+      -->
+      <style>
+        @font-face {
+          font-family: "Audiowide";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/Audiowide-Regular.ttf") format("truetype");
+        }
+        @font-face {
+          font-family: "Space Mono";
+          font-weight: 400;
+          font-style: normal;
+          font-display: block;
+          src: url("assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+        }
+
+        /* Root: styled via #root only (never a class) — cqw/cqh resolve against it */
+        #root {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden;
+          container-type: size;
+          font-family: "Audiowide", sans-serif;
+        }
+
+        /* Full-bleed ground lives on a clip layer, never on the root */
+        .bg {
+          position: absolute;
+          inset: 0;
+          background: #05050b;
+        }
+
+        /* Geo-ring — compass construction, lower-right, faint (~20%), bleeds off right edge.
+           Outer solid ring is part of the bare ground from t=0; inner dashed ring
+           self-draws quietly in Scene 3 (svg-path-draw via mask arc). */
+        .ring {
+          position: absolute;
+          left: 70.3cqw;
+          top: 28.4cqh;
+          width: 30cqw;
+          height: 30cqw;
+          overflow: visible;
+        }
+
+        /* Foreground stage */
+        .stage {
+          position: absolute;
+          inset: 0;
+        }
+
+        /* Headline — Audiowide h1 (6.2cqw, 400, white, sentence case), left-anchored
+           at pad-x, vertical center ~0.45h (landscape content band) */
+        .headline {
+          position: absolute;
+          left: 7cqw;
+          top: 36cqh;
+          display: flex;
+          align-items: baseline;
+          column-gap: 0.3em;
+          font-size: 6.2cqw;
+          font-weight: 400;
+          line-height: 1.06;
+          color: #ffffff;
+          white-space: nowrap;
+        }
+        .headline .w {
+          display: block;
+          will-change: transform, filter, opacity;
+        }
+        #hook01-w1 {
+          transform-origin: 12% 85%;
+        }
+
+        /* Token slot — both states stacked in one inline-grid cell; the swap is an
+           instant threshold cut (discrete-text-sequence), never a fade/roll */
+        .tok {
+          position: relative;
+          display: inline-grid;
+          justify-items: start;
+          will-change: transform, filter, opacity;
+        }
+        .tok-city,
+        .tok-board {
+          grid-area: 1 / 1;
+          display: block;
+          white-space: nowrap;
+          position: relative;
+          z-index: 1;
+        }
+        .tok-city {
+          color: #ffffff;
+          opacity: 1;
+        }
+        .tok-board {
+          color: #7c3aed;
+          opacity: 0;
+          transform-origin: 0% 62%;
+          will-change: transform, text-shadow, opacity;
+        }
+
+        /* The frame's single glow bloom — soft accent radial behind the swapped token */
+        .bloom {
+          position: absolute;
+          left: -14%;
+          top: -42%;
+          width: 128%;
+          height: 184%;
+          background: radial-gradient(
+            closest-side,
+            rgba(124, 58, 237, 0.34),
+            rgba(124, 58, 237, 0.1) 55%,
+            rgba(124, 58, 237, 0) 78%
+          );
+          opacity: 0;
+          z-index: 0;
+          pointer-events: none;
+        }
+
+        /* 1px taupe hairline under the line — draws itself on the dash pause */
+        .rule {
+          position: absolute;
+          left: 7cqw;
+          top: 50.6cqh;
+          width: 42cqw;
+          height: 2px;
+          overflow: visible;
+        }
+      </style>
+
+      <div
+        id="root"
+        data-composition-id="01-hook"
+        data-width="1920"
+        data-height="1080"
+        data-duration="2.441"
+      >
+        <div class="bg clip" data-start="0" data-duration="1.941" data-track-index="0"></div>
+
+        <svg
+          class="ring clip"
+          data-start="0"
+          data-duration="1.941"
+          data-track-index="1"
+          viewBox="0 0 600 600"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <defs>
+            <mask id="hook01-ringmask" maskUnits="userSpaceOnUse" x="0" y="0" width="600" height="600">
+              <!-- self-draw arc: dasharray/dashoffset set from getTotalLength() in script -->
+              <circle
+                id="hook01-ringarc"
+                cx="300"
+                cy="300"
+                r="222"
+                fill="none"
+                stroke="#ffffff"
+                stroke-width="26"
+                transform="rotate(-90 300 300)"
+              />
+            </mask>
+          </defs>
+          <!-- outer solid ring: static ground atmosphere from t=0 -->
+          <circle
+            cx="300"
+            cy="300"
+            r="296"
+            fill="none"
+            stroke="#ffffff"
+            stroke-opacity="0.2"
+            stroke-width="1.3"
+            vector-effect="non-scaling-stroke"
+          />
+          <!-- inner dashed ring: revealed by the mask arc in Scene 3 -->
+          <circle
+            cx="300"
+            cy="300"
+            r="222"
+            fill="none"
+            stroke="#ffffff"
+            stroke-opacity="0.18"
+            stroke-width="1.3"
+            stroke-dasharray="5 11"
+            vector-effect="non-scaling-stroke"
+            mask="url(#hook01-ringmask)"
+          />
+        </svg>
+
+        <div class="stage clip" data-start="0" data-duration="1.941" data-track-index="2">
+          <div class="headline" id="hook01-line">
+            <span class="w" id="hook01-w1">Your</span><span class="tok" id="hook01-tok"><span class="bloom" id="hook01-bloom"></span><span class="tok-city" id="hook01-city">city</span><span class="tok-board" id="hook01-board">game board</span></span>
+          </div>
+
+          <svg
+            class="rule"
+            id="hook01-rule"
+            viewBox="0 0 806 2"
+            preserveAspectRatio="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <line
+              id="hook01-rule-line"
+              x1="0"
+              y1="1"
+              x2="806"
+              y2="1"
+              stroke="rgba(255,255,255,0.10)"
+              stroke-width="1.35"
+            />
+          </svg>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+        (function () {
+          var D = 1.941;
+
+          /* VO cues (whisper word timings, assets/voice/01.wav) */
+          var CUE_W1 = 0.07; /* "Your" */
+          var CUE_W2 = 0.28; /* "city" */
+          var CUE_RULE = 0.6; /* dash pause after "city" — hairline self-draw */
+          var T_SWAP = 0.95; /* "game" onset — hard-cut in-place token swap */
+          var CUE_RING = 1.36; /* Scene 3 — dashed inner ring quiet self-draw */
+
+          var w1 = document.getElementById("hook01-w1");
+          var tok = document.getElementById("hook01-tok");
+          var tokCity = document.getElementById("hook01-city");
+          var tokBoard = document.getElementById("hook01-board");
+          var bloom = document.getElementById("hook01-bloom");
+          var ruleLine = document.getElementById("hook01-rule-line");
+          var ringArc = document.getElementById("hook01-ringarc");
+
+          /* svg-path-draw setup: dasharray = dashoffset = measured length (offset -> 0 draws) */
+          var ruleLen = ruleLine.getTotalLength ? ruleLine.getTotalLength() : 806;
+          ruleLine.style.strokeDasharray = ruleLen;
+          ruleLine.style.strokeDashoffset = ruleLen;
+          var arcLen = ringArc.getTotalLength ? ringArc.getTotalLength() : 2 * Math.PI * 222;
+          ringArc.style.strokeDasharray = arcLen;
+          ringArc.style.strokeDashoffset = arcLen;
+
+          var tl = gsap.timeline({ paused: true });
+
+          /* Scene 1 — per-word staggered reveal (kinetic-beat-slam: distinct entrance
+             per word, long-tail power-family settles, no overshoot) */
+          tl.fromTo(
+            w1,
+            { opacity: 0, scale: 1.24, filter: "blur(12px)" },
+            { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.5, ease: "power4.out" },
+            CUE_W1
+          );
+          tl.fromTo(
+            tok,
+            { opacity: 0, y: 34, filter: "blur(10px)" },
+            { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.55, ease: "power3.out" },
+            CUE_W2
+          );
+
+          /* Scene 2 — 1px hairline draws itself under the line on the dash pause */
+          tl.to(
+            ruleLine,
+            { strokeDashoffset: 0, duration: 0.36, ease: "power2.out" },
+            CUE_RULE
+          );
+
+          /* Scene 3 — the geo-ring's dashed inner ring completes its self-draw quietly */
+          tl.to(
+            ringArc,
+            { strokeDashoffset: 0, duration: 0.54, ease: "power2.out" },
+            CUE_RING
+          );
+
+          /* Scene 2 (the beat) — in-place token cycle: discrete state as a pure
+             function of t (discrete-text-sequence), an INSTANT cut, no roll/fade.
+             Keyword glow on the swapped token only: attack/sustain/release envelope
+             with a lingering rest glow (asr-keyword-glow). Single driver tween. */
+          var ATTACK = 0.12;
+          var SUS_END = 1.5;
+          var RELEASE = 0.32;
+          var REST = 0.3;
+          function env(t) {
+            if (t < T_SWAP) return 0;
+            if (t < T_SWAP + ATTACK) return (t - T_SWAP) / ATTACK;
+            if (t < SUS_END) return 1;
+            if (t < SUS_END + RELEASE) return 1 - ((t - SUS_END) / RELEASE) * (1 - REST);
+            return REST;
+          }
+          var driver = { t: 0 };
+          tl.to(
+            driver,
+            {
+              t: D,
+              duration: D,
+              ease: "none",
+              onUpdate: function () {
+                var t = driver.t;
+                var swapped = t >= T_SWAP;
+                tokCity.style.opacity = swapped ? "0" : "1";
+                tokBoard.style.opacity = swapped ? "1" : "0";
+                var e = env(t);
+                tokBoard.style.textShadow =
+                  "0 0 " +
+                  (26 * e).toFixed(2) +
+                  "px rgba(124,58,237," +
+                  (0.26 + 0.44 * e).toFixed(3) +
+                  ")";
+                tokBoard.style.transform = "scale(" + (1 + 0.04 * e).toFixed(4) + ")";
+                bloom.style.opacity = (0.5 * e).toFixed(3);
+              },
+            },
+            0
+          );
+
+          window.__timelines["01-hook"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>
