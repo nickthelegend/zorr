@@ -138,7 +138,7 @@ export default function HomeScreen() {
           <LogCell value={formatKm(s.longestRunKm)} label="LONGEST KM" delay={280} to="/capture" />
           <LogCell value={formatWinRate(s)} label="DUEL WIN %" accent={colors.territory} delay={310} to="/battle" />
           <LogCell value={`${s.duelsWon}–${s.duelsLost}`} label="DUEL RECORD" delay={340} to="/battle" />
-          <LogCell value={`${game.xp}`} label="$ZORR" accent={colors.gold} delay={370} to="/wallet" />
+          <LogCell value={`${game.xp}`} label="XP" accent={colors.gold} delay={370} to="/wallet" />
         </View>
       </ScrollView>
     </SafeAreaView>

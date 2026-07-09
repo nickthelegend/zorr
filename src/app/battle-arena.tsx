@@ -43,7 +43,10 @@ export default function BattleArena() {
   const room = (params.room as string) || ''
   const game = useGame()
   const mySeed = game.activeBeast
-  const myLevel = 1
+  // Your Guardian fights at your real progression level — every run's XP feeds
+  // levelForXp(xp) → stronger stats (beast.ts scales +3/level). Sent to peers
+  // over the wire, so PvP is level-aware too.
+  const myLevel = game.level
 
   const [phase, setPhase] = useState<Phase>(mode === 'bot' ? 'battle' : 'connecting')
   // Bot battles start immediately (no flash of the connecting screen); PvP waits
@@ -51,7 +54,9 @@ export default function BattleArena() {
   const [state, setState] = useState<BattleState | null>(() => {
     if (mode !== 'bot') return null
     const botSeed = `bot-${Math.floor(Math.random() * 100000)}`
-    return initBattle(generateBeast(mySeed, myLevel), generateBeast(botSeed), botSeed)
+    // Bot matches your level so the fight stays fair as you climb — progression
+    // shows in bigger stats on both sides, not a walkover.
+    return initBattle(generateBeast(mySeed, myLevel), generateBeast(botSeed, myLevel), botSeed)
   })
   const [status, setStatus] = useState('Getting ready…')
   const [left, setLeft] = useState(false) // opponent forfeited
@@ -89,7 +94,7 @@ export default function BattleArena() {
       setState(battleFromSeeds(hostSeed, hostLvl, guestSeed, guestLvl, matchSeedStr))
       setPhase('battle')
     },
-    [mySeed],
+    [mySeed, myLevel],
   )
 
   // Host is the seed authority: it draws a verifiable VRF seed (falling back to

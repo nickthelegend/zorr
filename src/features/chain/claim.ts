@@ -13,8 +13,9 @@ import {
   signTransactionMessageWithSigners,
 } from '@solana/kit'
 
-// Solana devnet (Stage 1). Stage 2 swaps this for the MagicBlock ER endpoint
-// once the delegated tile-claim program is deployed.
+// Solana devnet memo fallback. Captures run on the MagicBlock Ephemeral Rollup
+// (see er.ts, the primary path); this path logs a verifiable devnet memo when
+// the ER endpoint is unreachable, so a run always leaves an on-chain trace.
 const RPC_HTTP = 'https://api.devnet.solana.com'
 
 let signerPromise: Promise<KeyPairSigner> | null = null
@@ -85,17 +86,7 @@ async function sendMemoTx(memo: string): Promise<string> {
   return signature
 }
 
-/** Log a single captured tile on-chain. */
-export function claimTileOnChain(tileKey: string, lat: number, lng: number) {
-  return sendMemoTx(`ZORR|claim|${tileKey}|${lat.toFixed(5)},${lng.toFixed(5)}`)
-}
-
 /** Log a completed run on-chain (distance, area captured, tile count). */
 export function logRunOnChain(distanceKm: number, areaKm2: number, tileCount: number) {
   return sendMemoTx(`ZORR|run|${distanceKm.toFixed(2)}km|${areaKm2.toFixed(4)}km2|${tileCount}tiles`)
-}
-
-/** Register a newly minted Guardian on-chain (its seed is its identity). */
-export function mintGuardianOnChain(seed: string, name: string) {
-  return sendMemoTx(`ZORR|guardian|${seed}|${name}`)
 }

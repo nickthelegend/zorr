@@ -164,15 +164,29 @@ export default function RunScreen() {
 
   const logRun = useCallback(async (s: RunSummary) => {
     setLogging(true)
-    const last = s.tiles[s.tiles.length - 1]
-    const [ty, tx] = last ? last.split('_').map(Number) : [0, 0]
+    // Settle this run's tiles on the MagicBlock Ephemeral Rollup — gasless and
+    // ~sub-second each (the territory PDA is delegated once, see
+    // onchain/tests/zorr-er.ts). Bounded to the most recent tiles so a long run
+    // doesn't stall the summary; on-chain territory then reflects the run, not a
+    // single representative tile.
+    const ER_BATCH = 10
+    const batch = s.tiles.slice(-ER_BATCH)
     try {
+      if (batch.length === 0) throw new Error('empty run — use the run-log fallback')
       // Headline: capture on the MagicBlock Ephemeral Rollup (gasless, instant).
-      const { ms } = await captureTileOnER(tx, ty)
+      let captured = 0
+      let totalMs = 0
+      for (const key of batch) {
+        const [ty, tx] = key.split('_').map(Number)
+        const { ms } = await captureTileOnER(tx, ty)
+        captured += 1
+        totalMs += ms
+      }
       winHaptic()
+      const extra = s.tiles.length - captured
       setToast({
         kind: 'ok',
-        msg: `Captured on MagicBlock ER ⚡ ${ms}ms`,
+        msg: `${captured} ${captured === 1 ? 'tile' : 'tiles'} on MagicBlock ER ⚡ ${totalMs}ms${extra > 0 ? ` (+${extra} more)` : ''}`,
         url: `https://explorer.solana.com/address/${ZORR_PROGRAM}?cluster=devnet`,
       })
       setSummary(null)

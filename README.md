@@ -165,7 +165,7 @@ Notes:
 ## Tests
 
 ```bash
-npm test                   # 49 unit tests (jest-expo) — tiles, rivals, leaderboard,
+npm test                   # 64 unit tests (jest-expo) — tiles, rivals, leaderboard,
                            # run helpers, level curve, on-chain encoding, VRF seed
                            # helpers, the element chart + seed→beast generation, and the
                            # monster-duel engine (damage math, protocol, host election)
