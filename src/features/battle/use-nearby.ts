@@ -72,8 +72,14 @@ export function useNearby(myName: string, onText?: (text: string) => void) {
     running.current = true
     setScanning(true)
     try {
-      await NC.startAdvertise(myName)
-      await NC.startDiscovery(myName)
+      // P2P_CLUSTER (not the module's P2P_STAR default): both phones advertise
+      // AND discover, so they need the M-to-N cluster strategy to find each
+      // other's endpoint. P2P_STAR's hub/spoke split never matches symmetrically.
+      // Value 1 === Strategy.P2P_CLUSTER; use the enum when present, else the raw
+      // value so it can't throw if the enum object isn't emitted at runtime.
+      const P2P_CLUSTER = (NC.Strategy && NC.Strategy.P2P_CLUSTER) || 1
+      await NC.startAdvertise(myName, P2P_CLUSTER)
+      await NC.startDiscovery(myName, P2P_CLUSTER)
     } catch {
       setScanning(false)
       running.current = false
