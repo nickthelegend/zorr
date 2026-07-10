@@ -54,7 +54,8 @@ export default function BattleLobby() {
               <Text style={styles.change}>Change ›</Text>
             </TouchableOpacity>
           </View>
-          <BeastCard seed={game.activeBeast} />
+          {/* Preview at your real level so the card matches the stats you fight with. */}
+          <BeastCard seed={game.activeBeast} level={game.level} />
         </Animated.View>
 
         {/* Modes */}

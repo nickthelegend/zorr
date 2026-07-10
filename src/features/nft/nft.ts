@@ -1,27 +1,51 @@
-import { generateKeyPairSigner } from '@solana/kit'
+import { createKeyPairSignerFromPrivateKeyBytes, type KeyPairSigner } from '@solana/kit'
 import * as SecureStore from 'expo-secure-store'
 
 // Talks to the Zorr Beasts claim relay (server/../nft/src/claim-relay.mjs). Set
 // EXPO_PUBLIC_CLAIM_RELAY_URL to a running relay; emulator default 10.0.2.2:8790.
 export const CLAIM_RELAY_URL = process.env.EXPO_PUBLIC_CLAIM_RELAY_URL || 'http://10.0.2.2:8790'
 
-const OWNER_KEY = 'zorr.owner.address'
+const OWNER_SECRET_KEY = 'zorr.owner.secret' // 32-byte Ed25519 seed (JSON array)
+const LEGACY_OWNER_KEY = 'zorr.owner.address' // pre-fix installs stored only the address
 
-// The per-device wallet address that owns this player's claimed Guardian NFTs.
-// Generated once and persisted; the relay drops NFTs to it. (Battle is off-chain
-// so no signing is needed in-app; a Privy/connected wallet can replace this.)
-let ownerPromise: Promise<string> | null = null
-export function getOwnerAddress(): Promise<string> {
+// The device's own Solana wallet — it holds this player's claimed Guardian NFTs.
+// The 32-byte secret is generated once and kept in the OS keystore, so the wallet
+// is recoverable and can actually SIGN for what it owns (not just a stranded
+// address). The relay drops NFTs to it; getOwnerSigner() exposes it for on-chain
+// moves. Legacy installs that only stored an address keep it for display continuity.
+let ownerPromise: Promise<{ address: string; signer: KeyPairSigner | null }> | null = null
+function loadOwner() {
   if (!ownerPromise) {
     ownerPromise = (async () => {
-      const existing = await SecureStore.getItemAsync(OWNER_KEY)
-      if (existing) return existing
-      const signer = await generateKeyPairSigner()
-      await SecureStore.setItemAsync(OWNER_KEY, signer.address)
-      return signer.address
+      const stored = await SecureStore.getItemAsync(OWNER_SECRET_KEY)
+      if (stored) {
+        const signer = await createKeyPairSignerFromPrivateKeyBytes(Uint8Array.from(JSON.parse(stored) as number[]))
+        return { address: signer.address, signer }
+      }
+      // Legacy device (old code discarded the key): keep the address so NFTs
+      // already dropped there still resolve as owned — but it can't be signed for.
+      const legacy = await SecureStore.getItemAsync(LEGACY_OWNER_KEY)
+      if (legacy) return { address: legacy, signer: null }
+      // Fresh device: mint a real, recoverable keypair and persist its secret.
+      // crypto.getRandomValues comes from the react-native-quick-crypto polyfill
+      // (src/polyfill.js) — the same global crypto @solana/kit already relies on.
+      const secret = crypto.getRandomValues(new Uint8Array(32))
+      const signer = await createKeyPairSignerFromPrivateKeyBytes(secret)
+      await SecureStore.setItemAsync(OWNER_SECRET_KEY, JSON.stringify([...secret]))
+      return { address: signer.address, signer }
     })()
   }
   return ownerPromise
+}
+
+/** The device wallet address that owns this player's claimed Guardian NFTs. */
+export async function getOwnerAddress(): Promise<string> {
+  return (await loadOwner()).address
+}
+
+/** The device wallet's signer — can sign for its NFTs. Null only on legacy installs. */
+export async function getOwnerSigner(): Promise<KeyPairSigner | null> {
+  return (await loadOwner()).signer
 }
 
 export type OwnedBeast = {
