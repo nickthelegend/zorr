@@ -16,7 +16,18 @@ try {
 
 export const nearbyAvailable = !!NC
 
-export type Peer = { peerId: string; name: string }
+export type Peer = { peerId: string; name: string; rawName: string }
+
+// A unique token generated once per app launch. Two phones therefore advertise
+// DIFFERENT strings even when both players are the default "Explorer", which
+// (a) lets Nearby Connections tell the two endpoints apart and (b) lets the app
+// deterministically elect ONE initiator by string order (see battle-arena's
+// auto-connect). Without this, both phones call requestConnection at the same
+// instant — the symmetric collision where the BLE link forms then immediately
+// drops (ACL_DISCONNECTED) and both sides stay stuck on "Searching…".
+const SESSION_TAG = Math.random().toString(36).slice(2, 8)
+// Advertised name is "<player>~<tag>"; strip the tag for anything user-facing.
+const displayName = (raw: string) => (raw ? raw.split('~')[0] : '') || 'Explorer'
 
 /**
  * Bluetooth/Wi-Fi peer discovery for IRL duels (Google Nearby Connections).
@@ -37,13 +48,17 @@ export function useNearby(myName: string, onText?: (text: string) => void) {
     if (!NC) return
     const subs = [
       NC.onPeerFound((p) =>
-        setPeers((cur) => (cur.some((x) => x.peerId === p.peerId) ? cur : [...cur, { peerId: p.peerId, name: p.name || 'Explorer' }])),
+        setPeers((cur) =>
+          cur.some((x) => x.peerId === p.peerId)
+            ? cur
+            : [...cur, { peerId: p.peerId, name: displayName(p.name), rawName: p.name || '' }],
+        ),
       ),
       NC.onPeerLost((p) => setPeers((cur) => cur.filter((x) => x.peerId !== p.peerId))),
       NC.onInvitationReceived((inv) => {
         NC?.acceptConnection(inv.peerId).catch(() => {})
       }),
-      NC.onConnected((c) => setConnected({ peerId: c.peerId, name: c.name || 'Explorer' })),
+      NC.onConnected((c) => setConnected({ peerId: c.peerId, name: displayName(c.name), rawName: c.name || '' })),
       NC.onDisconnected(() => setConnected(null)),
       NC.onTextReceived((t) => textCb.current?.(t.text)),
     ]
@@ -75,11 +90,19 @@ export function useNearby(myName: string, onText?: (text: string) => void) {
       // P2P_CLUSTER (not the module's P2P_STAR default): both phones advertise
       // AND discover, so they need the M-to-N cluster strategy to find each
       // other's endpoint. P2P_STAR's hub/spoke split never matches symmetrically.
-      // Value 1 === Strategy.P2P_CLUSTER; use the enum when present, else the raw
-      // value so it can't throw if the enum object isn't emitted at runtime.
+      // (expo-nearby-connections 1.1.0 introduced the P2P_STAR default; 1.0.0 —
+      // the version AlgoQuest ships and that works — did not.) Value 1 ===
+      // Strategy.P2P_CLUSTER; use the enum when present, else the raw value so it
+      // can't throw if the enum object isn't emitted at runtime.
       const P2P_CLUSTER = (NC.Strategy && NC.Strategy.P2P_CLUSTER) || 1
-      await NC.startAdvertise(myName, P2P_CLUSTER)
-      await NC.startDiscovery(myName, P2P_CLUSTER)
+      // Advertise the unique tag (not the bare name) so the peer can tell us
+      // apart and elect a single initiator; see SESSION_TAG above.
+      const myTag = `${myName}~${SESSION_TAG}`
+      await NC.startAdvertise(myTag, P2P_CLUSTER)
+      // Let advertising settle before discovery starts (matches AlgoQuest's
+      // proven sequencing — starting both in the same tick can miss the peer).
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      await NC.startDiscovery(myTag, P2P_CLUSTER)
     } catch {
       setScanning(false)
       running.current = false
@@ -112,5 +135,5 @@ export function useNearby(myName: string, onText?: (text: string) => void) {
     [connected],
   )
 
-  return { peers, connected, scanning, error, available: nearbyAvailable, start, stop, connect, send }
+  return { peers, connected, scanning, error, available: nearbyAvailable, start, stop, connect, send, myTag: `${myName}~${SESSION_TAG}` }
 }

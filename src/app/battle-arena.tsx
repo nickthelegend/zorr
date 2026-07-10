@@ -197,9 +197,16 @@ export default function BattleArena() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Bluetooth: auto-challenge the first player we discover.
+  // Bluetooth: auto-challenge the first player we discover — but only ONE side
+  // may initiate. Both phones advertise + discover, so both see each other; if
+  // both called connect() at once the link forms then instantly drops (the
+  // Nearby symmetric collision). We elect a single initiator deterministically:
+  // the phone whose unique tag sorts higher requests the connection, the other
+  // simply waits and auto-accepts the invitation (onInvitationReceived).
   useEffect(() => {
-    if (mode === 'bt' && !nearby.connected && nearby.peers.length > 0) nearby.connect(nearby.peers[0].peerId)
+    if (mode !== 'bt' || nearby.connected || nearby.peers.length === 0) return
+    const peer = nearby.peers[0]
+    if (nearby.myTag > peer.rawName) nearby.connect(peer.peerId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nearby.peers, nearby.connected])
 
