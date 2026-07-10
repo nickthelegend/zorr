@@ -1,5 +1,6 @@
 import '../global.css'
 
+import { SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk'
 import { useFonts } from 'expo-font'
 import { Stack } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
@@ -12,6 +13,9 @@ SplashScreen.preventAutoHideAsync()
 
 export default function Layout() {
   const [fontsLoaded] = useFonts({
+    // Premium geometric display — Space Grotesk (pairs with Space Mono below).
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
     Audiowide: require('../../assets/fonts/Audiowide-Regular.ttf'),
     SpaceMono: require('../../assets/fonts/SpaceMono-Regular.ttf'),
     // Quest-cabinet faces, shared from the author's Kickpact project.

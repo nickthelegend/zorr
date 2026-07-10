@@ -31,7 +31,8 @@ export const colors = {
 } as const
 
 export const fonts = {
-  display: 'Audiowide', // gamey display font
+  display: 'SpaceGrotesk_600SemiBold', // premium geometric display (Space Grotesk)
+  displayBold: 'SpaceGrotesk_700Bold', // heavier cut for the wordmark + emphasis
   mono: 'SpaceMono',
   // Long case-sensitive data (wallet addresses, seeds) — same face as mono.
   data: 'SpaceMono',

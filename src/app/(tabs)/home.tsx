@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontFamily: fonts.display, fontSize: 18 },
   hi: { color: colors.textDim, fontSize: 12.5, letterSpacing: 0.4 },
-  brand: { color: colors.text, fontFamily: fonts.display, fontSize: 22, letterSpacing: 2, marginTop: 1 },
+  brand: { color: colors.text, fontFamily: fonts.displayBold, fontSize: 22, letterSpacing: 2, marginTop: 1 },
   bell: {
     width: 42,
     height: 42,

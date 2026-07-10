@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', marginBottom: 26 },
   lottieWrap: { width: 130, height: 130, marginBottom: 4 },
   lottie: { width: '100%', height: '100%' },
-  brand: { color: colors.text, fontFamily: fonts.display, fontSize: 44, letterSpacing: 5 },
+  brand: { color: colors.text, fontFamily: fonts.displayBold, fontSize: 44, letterSpacing: 5 },
   tagline: { color: colors.textMuted, fontSize: 15, marginTop: 6 },
   iconWrap: {
     width: 56,

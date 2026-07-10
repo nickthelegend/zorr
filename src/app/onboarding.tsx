@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  brand: { color: colors.text, fontFamily: fonts.display, fontSize: 20, letterSpacing: 2 },
+  brand: { color: colors.text, fontFamily: fonts.displayBold, fontSize: 20, letterSpacing: 2 },
   skipButton: { padding: 8 },
   skipText: { color: colors.textMuted, fontSize: 16, fontWeight: '600' },
   slide: { width, padding: 16, alignItems: 'center', justifyContent: 'center' },
