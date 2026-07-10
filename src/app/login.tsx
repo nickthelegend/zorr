@@ -1,4 +1,4 @@
-import { useCreateGuestAccount, useEmbeddedSolanaWallet, usePrivy } from '@privy-io/expo'
+import { useEmbeddedSolanaWallet, usePrivy } from '@privy-io/expo'
 import { useLogin } from '@privy-io/expo/ui'
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
@@ -30,7 +30,6 @@ export default function LoginScreen() {
   const { user } = usePrivy()
   const { login } = useLogin() // Privy's official login modal
   const solana = useEmbeddedSolanaWallet()
-  const { create: createGuestAccount } = useCreateGuestAccount()
   const game = useGame()
 
   const [step, setStep] = useState<Step>('welcome')
@@ -76,11 +75,12 @@ export default function LoginScreen() {
     router.replace('/home')
   }
 
-  // Make sure a Privy user + embedded Solana wallet actually exist before
-  // entering. Guests get a REAL Privy guest account (no OTP) so everyone has
-  // an embedded wallet. Failures are SHOWN (never swallowed) with retry + an
-  // explicit skip. The wallet step runs in an effect because the provider only
-  // exposes create()/recover() on the render after the user appears.
+  // Entering the app. A guest (no Privy session) goes straight in with their
+  // per-device wallet — getOwnerAddress() holds any claimed NFTs, so no account
+  // is required to play. An email sign-in already has a Privy user, so we
+  // provision their embedded Solana wallet in the effect below (it runs there
+  // because the provider only exposes create()/recover() the render after the
+  // user appears). Wallet failures are SHOWN, never swallowed, with a skip.
   const [entering, setEntering] = useState(false)
   const walletAttempted = useRef(false)
 
@@ -88,14 +88,11 @@ export default function LoginScreen() {
     setBusy(true)
     setError(null)
     walletAttempted.current = false
-    try {
-      if (!user) await createGuestAccount() // real Privy guest user
-      setEntering(true)
-    } catch (e) {
-      setWalletFailed(true)
-      setError(`Privy account failed: ${e instanceof Error ? e.message : String(e)}`)
-      setBusy(false)
+    if (!user) {
+      await finishEntry() // guest — local device wallet, instant entry
+      return
     }
+    setEntering(true) // Privy user — provision the embedded wallet in the effect
   }
 
   useEffect(() => {
