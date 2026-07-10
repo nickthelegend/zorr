@@ -1,5 +1,5 @@
 import { router } from 'expo-router'
-import { HelpCircle, Play, Shield, Swords } from 'lucide-react-native'
+import { HelpCircle, Play, Shield, Swords, Trophy } from 'lucide-react-native'
 import { useEffect } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
@@ -77,11 +77,18 @@ export default function HomeScreen() {
               <Text style={styles.brand}>ZORR</Text>
             </View>
           </Press>
-          <Press onPress={() => router.push('/settings')}>
-            <View style={styles.bell}>
-              <HelpCircle color={colors.textMuted} size={19} />
-            </View>
-          </Press>
+          <View style={styles.headerActions}>
+            <Press onPress={() => router.push('/leaderboard')}>
+              <View style={styles.bell}>
+                <Trophy color={colors.gold} size={19} />
+              </View>
+            </Press>
+            <Press onPress={() => router.push('/settings')}>
+              <View style={styles.bell}>
+                <HelpCircle color={colors.textMuted} size={19} />
+              </View>
+            </Press>
+          </View>
         </View>
 
         {/* Command hero → the map */}
@@ -149,6 +156,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 110 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: {
     width: 44,
