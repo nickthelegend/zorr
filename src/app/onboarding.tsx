@@ -3,13 +3,13 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
 import * as SecureStore from 'expo-secure-store'
 import { ArrowRight, Flag, Footprints, Wallet } from 'lucide-react-native'
-import LottieView from 'lottie-react-native'
 import { useRef, useState } from 'react'
 import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeIn } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Aurora } from '../components/aurora'
+import { OnboardHero } from '../components/onboard-hero'
 import { colors, fonts, radius } from '../theme'
 
 const { width } = Dimensions.get('window')
@@ -20,7 +20,7 @@ const onboardingData = [
     title: 'Own the Map',
     description:
       'Your Solana wallet, your turf. Every tile you capture is minted on-chain — instant and gasless on MagicBlock Ephemeral Rollups.',
-    lottieSource: require('../../assets/lottie/wallet.json'),
+    tint: colors.primary,
     icon: Wallet,
   },
   {
@@ -28,7 +28,7 @@ const onboardingData = [
     title: 'Walk to Conquer',
     description:
       'Move through the real world to claim land. Your steps are your power — anti-cheat blocks spoofing and vehicles, so only real walkers win.',
-    lottieSource: require('../../assets/lottie/connect.json'),
+    tint: colors.territory,
     icon: Footprints,
   },
   {
@@ -36,7 +36,7 @@ const onboardingData = [
     title: 'Capture the Land',
     description:
       'Paint the map in your color, claim VRF-dropped Guardian NFTs, and battle rivals over Bluetooth or online.',
-    lottieSource: require('../../assets/lottie/quest.json'),
+    tint: colors.primary,
     icon: Flag,
   },
 ]
@@ -46,12 +46,12 @@ const renderItem = ({ item }: { item: (typeof onboardingData)[0] }) => {
   return (
     <View style={styles.slide}>
       <View style={styles.imageContainer}>
-        <LottieView source={item.lottieSource} autoPlay loop style={styles.lottie} />
+        <OnboardHero Icon={Icon} tint={item.tint} size={width * 0.72} />
       </View>
       <BlurView intensity={40} tint="dark" style={styles.contentCard}>
-        <LinearGradient colors={['rgba(124, 58, 237, 0.1)', 'rgba(0, 0, 0, 0)']} style={StyleSheet.absoluteFill} />
-        <View style={styles.iconContainer}>
-          <Icon size={32} color={colors.primary} />
+        <LinearGradient colors={[`${item.tint}1A`, 'rgba(0, 0, 0, 0)']} style={StyleSheet.absoluteFill} />
+        <View style={[styles.iconContainer, { backgroundColor: `${item.tint}1A`, borderColor: `${item.tint}4D` }]}>
+          <Icon size={32} color={item.tint} />
         </View>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.description}>{item.description}</Text>
@@ -140,7 +140,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  lottie: { width: '100%', height: '100%' },
   contentCard: {
     width: '100%',
     padding: 24,
