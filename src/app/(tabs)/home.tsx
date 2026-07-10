@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { LevelRing } from '../../components/level-ring'
 import { CTA, Eyebrow, GlowCard, Press } from '../../components/ui'
+import { ZorrCard } from '../../components/zorr-card'
 import { levelForXp, useGame } from '../../features/game/game-store'
 import { formatKm, formatWinRate, nextRank, rankForLevel } from '../../features/game/stats'
 import { fetchOwned, getOwnerAddress } from '../../features/nft/nft'
@@ -112,6 +113,11 @@ export default function HomeScreen() {
               </View>
             </GlowCard>
           </Press>
+        </Animated.View>
+
+        {/* $ZORR wallet + swap */}
+        <Animated.View entering={FadeInDown.delay(100)} style={{ marginTop: 14 }}>
+          <ZorrCard />
         </Animated.View>
 
         {/* Start run CTA */}

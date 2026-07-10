@@ -1,5 +1,5 @@
 import { router } from 'expo-router'
-import { Bluetooth, Bot, Globe, Repeat, Swords, X } from 'lucide-react-native'
+import { Bluetooth, Bot, Coins, Globe, Repeat, Swords, X } from 'lucide-react-native'
 import { useState } from 'react'
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated'
@@ -11,6 +11,9 @@ import { CTA, GhostBtn } from '../components/ui'
 import { useGame } from '../features/game/game-store'
 import { colors, fonts, radius } from '../theme'
 
+// $ZORR wager tiers. 0 = a friendly (XP-only) duel; any stake makes it winner-take-pot.
+const STAKES = [0, 50, 100, 250]
+
 function randomRoom(): string {
   const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let s = ''
@@ -21,10 +24,12 @@ function randomRoom(): string {
 export default function BattleLobby() {
   const game = useGame()
   const [room, setRoom] = useState('')
+  const [stake, setStake] = useState(0)
+  const q = stake > 0 ? `&stake=${stake}` : ''
 
   const goOnline = () => {
     const code = (room.trim() || randomRoom()).toUpperCase().slice(0, 6)
-    router.push(`/battle-arena?mode=online&room=${encodeURIComponent(code)}`)
+    router.push(`/battle-arena?mode=online&room=${encodeURIComponent(code)}${q}`)
   }
 
   return (
@@ -58,6 +63,22 @@ export default function BattleLobby() {
           <BeastCard seed={game.activeBeast} level={game.level} />
         </Animated.View>
 
+        {/* $ZORR wager — winner takes the pot */}
+        <Animated.View entering={FadeInDown.delay(90)} style={styles.wager}>
+          <View style={styles.wagerHead}>
+            <Coins color={colors.gold} size={15} />
+            <Text style={styles.wagerLabel}>WAGER $ZORR</Text>
+            {stake > 0 ? <Text style={styles.wagerPot}>winner takes {stake * 2}</Text> : <Text style={styles.wagerFree}>friendly · XP only</Text>}
+          </View>
+          <View style={styles.stakeRow}>
+            {STAKES.map((v) => (
+              <TouchableOpacity key={v} onPress={() => setStake(v)} activeOpacity={0.85} style={[styles.stake, stake === v && styles.stakeOn]}>
+                <Text style={[styles.stakeText, stake === v && styles.stakeTextOn]}>{v === 0 ? 'None' : v}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Animated.View>
+
         {/* Modes */}
         <Animated.View entering={FadeInDown.delay(120)} style={styles.modes}>
           <CTA
@@ -67,9 +88,9 @@ export default function BattleLobby() {
           />
 
           <GhostBtn
-            label="Bluetooth · nearby player"
+            label={stake > 0 ? `Bluetooth · stake ${stake} ZORR` : 'Bluetooth · nearby player'}
             icon={<Bluetooth color={colors.text} size={20} />}
-            onPress={() => router.push('/battle-arena?mode=bt')}
+            onPress={() => router.push(`/battle-arena?mode=bt${q}`)}
           />
 
           <View style={styles.onlineRow}>
@@ -113,6 +134,16 @@ const styles = StyleSheet.create({
   primaryText: { color: '#04110C', fontSize: 16, fontWeight: '800' },
   altBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 15, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: colors.border },
   altText: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  wager: { marginTop: 18, gap: 10 },
+  wagerHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  wagerLabel: { color: colors.textFaint, fontSize: 12, letterSpacing: 1.5 },
+  wagerPot: { color: colors.gold, fontSize: 12, fontWeight: '700', marginLeft: 'auto' },
+  wagerFree: { color: colors.textFaint, fontSize: 11, marginLeft: 'auto' },
+  stakeRow: { flexDirection: 'row', gap: 8 },
+  stake: { flex: 1, paddingVertical: 11, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center' },
+  stakeOn: { borderColor: colors.gold, backgroundColor: 'rgba(251,191,36,0.12)' },
+  stakeText: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
+  stakeTextOn: { color: colors.gold },
   onlineRow: { flexDirection: 'row', gap: 10 },
   roomInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: 16, color: colors.text, fontSize: 16, fontFamily: fonts.mono, letterSpacing: 4 },
   onlineBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 15, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: colors.border },

@@ -1,13 +1,14 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import { router, useLocalSearchParams } from 'expo-router'
-import { Bluetooth, Bot, Globe, Sparkles, Trophy, X } from 'lucide-react-native'
+import { Bluetooth, Bot, Coins, Globe, Sparkles, Trophy, X } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeIn } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Aurora } from '../components/aurora'
 import { CTA, GlowCard, MeterBar, Press } from '../components/ui'
+import { beastImage } from '../features/beasts/beast-art'
 import { generateBeast, type Ability } from '../features/beasts/beast'
 import { ELEMENT_META } from '../features/beasts/element'
 import {
@@ -29,7 +30,7 @@ import { requestVrfSeed } from '../features/chain/vrf'
 import { hexSeed, scopeFromString } from '../features/chain/vrf-seed'
 import { failHaptic, hitHaptic, winHaptic } from '../features/core/haptics'
 import { useGame } from '../features/game/game-store'
-import { submitStats } from '../features/nft/nft'
+import { cancelWager, reportWager, stakeWager, submitStats } from '../features/nft/nft'
 import { tileAreaKm2 } from '../features/run/use-run-session'
 import { colors, fonts, radius } from '../theme'
 
@@ -38,9 +39,13 @@ type Phase = 'connecting' | 'summoning' | 'battle' | 'result'
 const TURN_SECONDS = 30
 
 export default function BattleArena() {
-  const params = useLocalSearchParams<{ mode?: string; room?: string }>()
+  const params = useLocalSearchParams<{ mode?: string; room?: string; stake?: string }>()
   const mode = (params.mode as Mode) || 'bot'
   const room = (params.room as string) || ''
+  // Optional $ZORR wager (PvP only). Both players stake the same amount into a
+  // shared room; the winner takes the pot. Online keys the pot by room code; BT
+  // keys it by the agreed match seed (both peers derive the same one).
+  const stake = mode === 'bot' ? 0 : Math.max(0, Math.floor(Number(params.stake) || 0))
   const game = useGame()
   const mySeed = game.activeBeast
   // Your Guardian fights at your real progression level — every run's XP feeds
@@ -61,6 +66,11 @@ export default function BattleArena() {
   const [status, setStatus] = useState('Getting ready…')
   const [left, setLeft] = useState(false) // opponent forfeited
   const [clock, setClock] = useState(TURN_SECONDS)
+  // $ZORR wager bookkeeping.
+  const [pot, setPot] = useState(0)
+  const [zorrWon, setZorrWon] = useState(0)
+  const wagerRoomRef = useRef<string | null>(null) // set once staked, keys the pot
+  const wagerReportedRef = useRef(false)
 
   // Handshake + battle bookkeeping (refs so the stable message handler sees latest).
   const myNonce = useRef(1 + Math.floor(Math.random() * 1_000_000_000))
@@ -93,8 +103,19 @@ export default function BattleArena() {
       mySideRef.current = iAmHost ? 'p1' : 'p2'
       setState(battleFromSeeds(hostSeed, hostLvl, guestSeed, guestLvl, matchSeedStr))
       setPhase('battle')
+      // Place the $ZORR wager once both peers reach the agreed seed — online keys
+      // the pot by room code, BT by the shared seed, so both stake the same room.
+      if (stake > 0 && !wagerRoomRef.current) {
+        const wroom = mode === 'online' ? room : `bt-${matchSeedStr.slice(0, 20)}`
+        wagerRoomRef.current = wroom
+        stakeWager(wroom, stake)
+          .then((r) => setPot(r.pot))
+          .catch(() => {
+            wagerRoomRef.current = null // stake failed (low balance / relay) → play friendly
+          })
+      }
     },
-    [mySeed, myLevel],
+    [mySeed, myLevel, stake, mode, room],
   )
 
   // Host is the seed authority: it draws a verifiable VRF seed (falling back to
@@ -229,6 +250,12 @@ export default function BattleArena() {
       setLeft(true)
       game.award(WIN_XP)
       game.recordDuel(true)
+      // Opponent vanished before the duel resolved — the relay can't confirm a
+      // winner, so reclaim our own stake (their stake waits for them to reclaim).
+      if (wagerRoomRef.current && !wagerReportedRef.current) {
+        wagerReportedRef.current = true
+        cancelWager(wagerRoomRef.current).catch(() => {})
+      }
       setPhase('result')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -295,6 +322,15 @@ export default function BattleArena() {
       else failHaptic()
       game.award(won ? WIN_XP : LOSE_XP)
       game.recordDuel(won)
+      // Settle the $ZORR wager — the winner takes the pot once both peers report.
+      if (wagerRoomRef.current && !wagerReportedRef.current) {
+        wagerReportedRef.current = true
+        reportWager(wagerRoomRef.current, won)
+          .then((r) => {
+            if (r.settled && r.iWon && r.won) setZorrWon(r.won)
+          })
+          .catch(() => {})
+      }
       // Publish the fresh record to the global leaderboard (fire-and-forget).
       submitStats({
         name: game.name,
@@ -372,7 +408,12 @@ export default function BattleArena() {
               {me.beast.name} vs {foe.beast.name}
             </Text>
             <Text style={styles.resultXp}>+{won ? WIN_XP : LOSE_XP} XP</Text>
-            <CTA label="Back to Arena" onPress={quit} style={{ alignSelf: 'stretch', marginHorizontal: 24 }} />
+            {zorrWon > 0 ? (
+              <Text style={styles.resultZorr}>+{zorrWon.toLocaleString()} ZORR</Text>
+            ) : stake > 0 && !won && !left ? (
+              <Text style={styles.resultZorrLost}>−{stake.toLocaleString()} ZORR staked</Text>
+            ) : null}
+            <CTA label="Back to Arena" onPress={quit} style={{ alignSelf: 'stretch', marginHorizontal: 24, marginTop: 24 }} />
           </Animated.View>
         </SafeAreaView>
       </View>
@@ -388,9 +429,17 @@ export default function BattleArena() {
             {mode === 'bot' ? <Bot color={colors.textDim} size={14} /> : mode === 'bt' ? <Bluetooth color={colors.textDim} size={14} /> : <Globe color={colors.textDim} size={14} />}
             <Text style={styles.modeText}>{mode === 'bot' ? 'vs AI' : mode === 'bt' ? 'Bluetooth' : `Room ${room}`}</Text>
           </View>
-          <TouchableOpacity style={styles.close} onPress={quit}>
-            <X color={colors.text} size={18} />
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            {pot > 0 ? (
+              <View style={styles.potBadge}>
+                <Coins color={colors.gold} size={13} />
+                <Text style={styles.potText}>{pot.toLocaleString()}</Text>
+              </View>
+            ) : null}
+            <TouchableOpacity style={styles.close} onPress={quit}>
+              <X color={colors.text} size={18} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <Fighter beast={foe} align="left" />
@@ -429,10 +478,11 @@ export default function BattleArena() {
 function Fighter({ beast, align, mine }: { beast: BeastState; align: 'left' | 'right'; mine?: boolean }) {
   const el = ELEMENT_META[beast.beast.element]
   const low = beast.health / beast.beast.maxHealth < 0.3
+  const art = beastImage(beast.beast.seed, beast.beast.element, beast.beast.name)
   return (
     <GlowCard tint={el.color} glow={mine ? el.color : undefined} radiusSize={radius.lg} contentStyle={[styles.fighter, align === 'right' && styles.fighterRight]}>
       <View style={[styles.avatar, { borderColor: el.color, backgroundColor: `${el.color}1A`, shadowColor: el.color }]}>
-        <Text style={styles.avatarGlyph}>{beast.beast.glyph}</Text>
+        {art ? <Image source={art} style={styles.avatarImg} resizeMode="cover" /> : <Text style={styles.avatarGlyph}>{beast.beast.glyph}</Text>}
       </View>
       <View style={styles.fighterInfo}>
         <View style={styles.fighterTop}>
@@ -507,7 +557,9 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 0 },
     elevation: 6,
+    overflow: 'hidden',
   },
+  avatarImg: { width: '100%', height: '100%' },
   avatarGlyph: { fontSize: 30 },
   fighterInfo: { flex: 1, gap: 6 },
   fighterTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -536,7 +588,12 @@ const styles = StyleSheet.create({
   resultTitle: { color: colors.text, fontFamily: fonts.display, fontSize: 34 },
   forfeit: { color: colors.territory, fontSize: 13, marginTop: 8 },
   resultSub: { color: colors.textDim, fontSize: 14, marginTop: 8 },
-  resultXp: { color: colors.gold, fontSize: 16, fontWeight: '700', marginTop: 8, marginBottom: 24 },
+  resultXp: { color: colors.gold, fontSize: 16, fontWeight: '700', marginTop: 8 },
+  resultZorr: { color: colors.gold, fontFamily: fonts.display, fontSize: 22, marginTop: 6 },
+  resultZorrLost: { color: colors.textDim, fontSize: 14, marginTop: 6 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  potBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(251,191,36,0.4)', backgroundColor: 'rgba(251,191,36,0.1)' },
+  potText: { color: colors.gold, fontSize: 13, fontWeight: '800', fontFamily: fonts.mono },
   primaryBtn: { backgroundColor: colors.territory, paddingVertical: 15, paddingHorizontal: 40, borderRadius: radius.lg },
   primaryText: { color: '#04110C', fontSize: 16, fontWeight: '800' },
 })

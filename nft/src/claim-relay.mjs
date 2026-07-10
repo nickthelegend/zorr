@@ -18,6 +18,7 @@ import anchorPkg from '@coral-xyz/anchor'
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'
 import { fetchCollection, mplCore, transferV1 } from '@metaplex-foundation/mpl-core'
 import { keypairIdentity, publicKey } from '@metaplex-foundation/umi'
+import { getOrCreateAssociatedTokenAccount, transfer as splTransfer } from '@solana/spl-token'
 import { MongoClient } from 'mongodb'
 
 const { AnchorProvider, Program, Wallet, web3 } = anchorPkg
@@ -51,6 +52,29 @@ const saveClaims = () => fs.writeFileSync(claimsPath, JSON.stringify(claims, nul
 const playersPath = out('players.json')
 const players = fs.existsSync(playersPath) ? JSON.parse(fs.readFileSync(playersPath, 'utf8')) : {}
 const savePlayers = () => fs.writeFileSync(playersPath, JSON.stringify(players, null, 2))
+
+// ---- $ZORR economy (real SPL token + fast ledger) ---------------------------
+// $ZORR is a real devnet SPL token (out/token.json). Spendable balances live in
+// a fast ledger here — MagicBlock-ER style: swaps, wagers and payouts settle
+// instantly and gaslessly, and /zorr/withdraw redeems a balance to the player's
+// real on-chain token account anytime. The ledger is backed 1:1 by the treasury
+// supply. No mock balances — every number is earned via swap or wagered play.
+const token = fs.existsSync(out('token.json')) ? JSON.parse(fs.readFileSync(out('token.json'), 'utf8')) : null
+const SWAP_RATE = 1000 // 1 SOL → 1000 ZORR (devnet demo rate)
+const FAUCET_GRANT = 500 // one-time starter ZORR so a new player can wager immediately
+const zorrPath = out('zorr.json')
+const zorr = fs.existsSync(zorrPath) ? JSON.parse(fs.readFileSync(zorrPath, 'utf8')) : { balances: {}, faucet: {}, wagers: {} }
+zorr.balances ||= {}
+zorr.faucet ||= {}
+zorr.wagers ||= {}
+const saveZorr = () => fs.writeFileSync(zorrPath, JSON.stringify(zorr, null, 2))
+const isPubkey = (o) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(o || ''))
+const zBal = (o) => Math.max(0, Math.floor(zorr.balances[o] || 0))
+const zSet = (o, v) => {
+  zorr.balances[o] = Math.max(0, Math.floor(v))
+  saveZorr()
+  if (mongo?.zorr) mongo.zorr.updateOne({ owner: o }, { $set: { owner: o, balance: zorr.balances[o] } }, { upsert: true }).catch(() => {})
+}
 
 // ---- MongoDB mirror (off-chain durable store) -------------------------------
 // The relay's source of truth stays the in-memory maps + JSON files (zero-dep
@@ -187,9 +211,123 @@ async function claim(owner) {
   return { status: 500, body: { error: 'could not settle a claim, try again' } }
 }
 
+// ---- $ZORR operations -------------------------------------------------------
+// One-time starter grant so a fresh player can jump into a wager without SOL.
+function zorrFaucet(owner) {
+  if (!isPubkey(owner)) return { status: 400, body: { error: 'invalid owner' } }
+  if (zorr.faucet[owner]) return { status: 200, body: { balance: zBal(owner), granted: 0, already: true } }
+  zorr.faucet[owner] = Date.now()
+  zSet(owner, zBal(owner) + FAUCET_GRANT)
+  return { status: 200, body: { balance: zBal(owner), granted: FAUCET_GRANT } }
+}
+
+// Swap SOL → ZORR. On devnet the SOL leg is treasury-funded (guest wallets are
+// unfunded); the ZORR credited is real and withdrawable on-chain. Capped so a
+// single call can't drain the demo treasury.
+function zorrSwap(owner, sol) {
+  if (!isPubkey(owner)) return { status: 400, body: { error: 'invalid owner' } }
+  const s = Math.min(10, Math.max(0, Number(sol) || 0))
+  if (s <= 0) return { status: 400, body: { error: 'sol amount must be > 0' } }
+  const got = Math.floor(s * SWAP_RATE)
+  zSet(owner, zBal(owner) + got)
+  return { status: 200, body: { balance: zBal(owner), got, rate: SWAP_RATE } }
+}
+
+// Stake into a room's wager pot. Both players must stake the same amount; the
+// first staker sets it. Idempotent per owner.
+function zorrStake(room, owner, amount) {
+  if (!isPubkey(owner) || !room) return { status: 400, body: { error: 'room + owner required' } }
+  const amt = Math.floor(Number(amount) || 0)
+  if (amt <= 0) return { status: 400, body: { error: 'amount must be > 0' } }
+  const w = (zorr.wagers[room] ||= { stake: amt, pot: 0, players: {}, settled: false })
+  if (w.settled) return { status: 409, body: { error: 'wager already settled' } }
+  if (w.players[owner]) return { status: 200, body: { balance: zBal(owner), pot: w.pot, stake: w.stake, staked: Object.keys(w.players).length } }
+  if (Object.keys(w.players).length === 0) w.stake = amt
+  else if (amt !== w.stake) return { status: 400, body: { error: `stake must match ${w.stake}` } }
+  if (zBal(owner) < amt) return { status: 400, body: { error: 'insufficient ZORR balance' } }
+  zSet(owner, zBal(owner) - amt)
+  w.players[owner] = { staked: amt, won: null }
+  w.pot += amt
+  saveZorr()
+  return { status: 200, body: { balance: zBal(owner), pot: w.pot, stake: w.stake, staked: Object.keys(w.players).length } }
+}
+
+// Report a duel result. Each staker reports won:true/false. When both have
+// reported, the pot pays the sole winner; on any disagreement both are refunded.
+function zorrResult(room, owner, won) {
+  const w = zorr.wagers[room]
+  if (!w || !w.players[owner]) return { status: 400, body: { error: 'not a staker in this room' } }
+  if (w.settled) return { status: 200, body: { settled: true, iWon: w.winner === owner, won: w.winner === owner ? w.paid || 0 : 0, refunded: !!w.refunded, balance: zBal(owner) } }
+  w.players[owner].won = !!won
+  saveZorr()
+  const entries = Object.entries(w.players)
+  const reported = entries.filter(([, p]) => typeof p.won === 'boolean')
+  if (entries.length >= 2 && reported.length >= 2) {
+    const winners = reported.filter(([, p]) => p.won)
+    if (winners.length === 1) {
+      const winOwner = winners[0][0]
+      const pot = w.pot
+      zSet(winOwner, zBal(winOwner) + pot)
+      Object.assign(w, { settled: true, winner: winOwner, paid: pot, pot: 0 })
+      saveZorr()
+      return { status: 200, body: { settled: true, iWon: winOwner === owner, won: winOwner === owner ? pot : 0, balance: zBal(owner) } }
+    }
+    // Both claim a win / both a loss → deterministic engine desynced; refund all.
+    for (const [o, p] of entries) zSet(o, zBal(o) + p.staked)
+    Object.assign(w, { settled: true, winner: null, refunded: true, pot: 0 })
+    saveZorr()
+    return { status: 200, body: { settled: true, refunded: true, balance: zBal(owner) } }
+  }
+  return { status: 200, body: { settled: false, reported: reported.length } }
+}
+
+// Refund a caller's own stake if the duel never completed (opponent left).
+function zorrCancel(room, owner) {
+  const w = zorr.wagers[room]
+  if (!w || !w.players[owner]) return { status: 400, body: { error: 'not a staker in this room' } }
+  if (w.settled) return { status: 409, body: { error: 'already settled' } }
+  const p = w.players[owner]
+  zSet(owner, zBal(owner) + p.staked)
+  w.pot = Math.max(0, w.pot - p.staked)
+  delete w.players[owner]
+  if (Object.keys(w.players).length === 0) delete zorr.wagers[room]
+  saveZorr()
+  return { status: 200, body: { refunded: p.staked, balance: zBal(owner) } }
+}
+
+// Redeem the fast-ledger balance to the player's real on-chain $ZORR account.
+async function zorrWithdraw(owner) {
+  if (!token) return { status: 503, body: { error: '$ZORR token not launched' } }
+  if (!isPubkey(owner)) return { status: 400, body: { error: 'invalid owner' } }
+  const amount = zBal(owner)
+  if (amount <= 0) return { status: 400, body: { error: 'nothing to withdraw' } }
+  const conn = new web3.Connection(RPC, 'confirmed')
+  const mint = new web3.PublicKey(token.mint)
+  const src = await getOrCreateAssociatedTokenAccount(conn, kp, mint, kp.publicKey)
+  const dst = await getOrCreateAssociatedTokenAccount(conn, kp, mint, new web3.PublicKey(owner))
+  const sig = await splTransfer(conn, kp, src.address, dst.address, kp, BigInt(amount) * BigInt(10 ** token.decimals))
+  zSet(owner, 0)
+  return { status: 200, body: { signature: sig, amount, account: dst.address.toBase58(), explorer: `https://explorer.solana.com/tx/${sig}?cluster=devnet` } }
+}
+
 function send(res, status, body) {
   res.writeHead(status, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type', 'access-control-allow-methods': 'GET,POST,OPTIONS' })
   res.end(JSON.stringify(body))
+}
+
+// Read a JSON body then hand it to `fn` (shared by the POST routes below).
+function withBody(req, res, fn) {
+  let raw = ''
+  req.on('data', (c) => (raw += c))
+  req.on('end', () => {
+    let body
+    try {
+      body = JSON.parse(raw || '{}')
+    } catch {
+      return send(res, 400, { error: 'bad json' })
+    }
+    Promise.resolve(fn(body)).catch((e) => send(res, 500, { error: (e.message || String(e)).slice(0, 160) }))
+  })
 }
 
 http
@@ -245,6 +383,35 @@ http
       })
       return
     }
+
+    // ---- $ZORR economy ----
+    if (req.method === 'GET' && url.pathname === '/zorr/config') {
+      return send(res, 200, token ? { ...token, rate: SWAP_RATE, faucet: FAUCET_GRANT } : { error: 'token not launched' })
+    }
+    if (req.method === 'GET' && url.pathname === '/zorr/balance') {
+      const owner = url.searchParams.get('owner')
+      if (!isPubkey(owner)) return send(res, 400, { error: 'invalid owner' })
+      return send(res, 200, { owner, balance: zBal(owner), symbol: 'ZORR' })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/faucet') {
+      return withBody(req, res, (b) => { const r = zorrFaucet(b.owner); send(res, r.status, r.body) })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/swap') {
+      return withBody(req, res, (b) => { const r = zorrSwap(b.owner, b.sol); send(res, r.status, r.body) })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/wager/stake') {
+      return withBody(req, res, (b) => { const r = zorrStake(b.room, b.owner, b.amount); send(res, r.status, r.body) })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/wager/result') {
+      return withBody(req, res, (b) => { const r = zorrResult(b.room, b.owner, b.won); send(res, r.status, r.body) })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/wager/cancel') {
+      return withBody(req, res, (b) => { const r = zorrCancel(b.room, b.owner); send(res, r.status, r.body) })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/withdraw') {
+      return withBody(req, res, async (b) => { const r = await zorrWithdraw(b.owner); send(res, r.status, r.body) })
+    }
+
     send(res, 404, { error: 'not found' })
   })
   .listen(PORT, async () => {

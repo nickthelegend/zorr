@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
+import { beastImage } from '../features/beasts/beast-art'
 import { generateBeast, RARITY_COLOR } from '../features/beasts/beast'
 import { ELEMENT_META } from '../features/beasts/element'
 import { colors, fonts, radius } from '../theme'
@@ -22,6 +23,7 @@ export function BeastCard({
   const beast = generateBeast(seed, level)
   const el = ELEMENT_META[beast.element]
   const rarity = RARITY_COLOR[beast.rarity]
+  const art = beastImage(seed, beast.element, beast.name)
 
   const body = (
     <LinearGradient
@@ -32,7 +34,7 @@ export function BeastCard({
     >
       <View style={styles.row}>
         <View style={[styles.crest, { borderColor: el.color, backgroundColor: `${el.color}1A` }]}>
-          <Text style={styles.glyph}>{beast.glyph}</Text>
+          {art ? <Image source={art} style={styles.crestImg} resizeMode="cover" /> : <Text style={styles.glyph}>{beast.glyph}</Text>}
         </View>
         <View style={styles.info}>
           <Text style={styles.name} numberOfLines={1}>
@@ -83,7 +85,8 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: radius.lg, padding: 14, gap: 14 },
   cardCompact: { padding: 12, gap: 0 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  crest: { width: 52, height: 52, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  crest: { width: 52, height: 52, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  crestImg: { width: '100%', height: '100%' },
   glyph: { fontSize: 26 },
   info: { flex: 1, gap: 6 },
   name: { color: colors.text, fontFamily: fonts.display, fontSize: 16 },
