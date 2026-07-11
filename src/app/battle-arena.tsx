@@ -7,9 +7,9 @@ import Animated, { FadeIn } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Aurora } from '../components/aurora'
-import { CTA, GlowCard, MeterBar, Press } from '../components/ui'
+import { CTA, MeterBar, Press } from '../components/ui'
 import { beastImage } from '../features/beasts/beast-art'
-import { generateBeast, type Ability } from '../features/beasts/beast'
+import { generateBeast, RARITY_COLOR, type Ability } from '../features/beasts/beast'
 import { ELEMENT_META } from '../features/beasts/element'
 import {
   battleFromSeeds,
@@ -454,7 +454,7 @@ export default function BattleArena() {
           </View>
         </View>
 
-        <Fighter beast={foe} align="left" />
+        <Fighter beast={foe} align="left" active={!myTurn && !state.over} />
 
         <View style={styles.turnBar}>
           <Text style={[styles.turnText, { color: myTurn ? colors.territory : colors.textDim }]}>
@@ -475,7 +475,7 @@ export default function BattleArena() {
           )}
         </View>
 
-        <Fighter beast={me} align="right" mine />
+        <Fighter beast={me} align="right" mine active={myTurn} />
 
         <View style={styles.moves}>
           {me.beast.abilities.map((a, i) => (
@@ -487,38 +487,54 @@ export default function BattleArena() {
   )
 }
 
-function Fighter({ beast, align, mine }: { beast: BeastState; align: 'left' | 'right'; mine?: boolean }) {
+function Fighter({ beast, align, mine, active }: { beast: BeastState; align: 'left' | 'right'; mine?: boolean; active?: boolean }) {
   const el = ELEMENT_META[beast.beast.element]
-  const low = beast.health / beast.beast.maxHealth < 0.3
+  const pct = beast.health / beast.beast.maxHealth
+  const low = pct < 0.3
   const art = beastImage(beast.beast.seed, beast.beast.element, beast.beast.name)
+  const rar = RARITY_COLOR[beast.beast.rarity]
   return (
-    <GlowCard tint={el.color} glow={mine ? el.color : undefined} radiusSize={radius.lg} contentStyle={[styles.fighter, align === 'right' && styles.fighterRight]}>
-      <View style={[styles.avatar, { borderColor: el.color, backgroundColor: `${el.color}1A`, shadowColor: el.color }]}>
-        {art ? <Image source={art} style={styles.avatarImg} resizeMode="cover" /> : <Text style={styles.avatarGlyph}>{beast.beast.glyph}</Text>}
+    <View style={[styles.fighter, align === 'right' && styles.fighterRight]}>
+      {/* Showcase sprite: element glow, framed art, platform shadow */}
+      <View style={styles.stage}>
+        <View style={[styles.stageGlow, { backgroundColor: el.color, opacity: active ? 0.28 : 0.14 }]} />
+        <View style={[styles.platform, { backgroundColor: el.color }]} />
+        <View style={[styles.spriteFrame, { borderColor: active ? el.color : `${el.color}66`, shadowColor: el.color, shadowOpacity: active ? 0.9 : 0.5 }]}>
+          {art ? (
+            <Image source={art} style={styles.spriteImg} resizeMode="cover" />
+          ) : (
+            <Text style={styles.spriteGlyph}>{beast.beast.glyph}</Text>
+          )}
+        </View>
+        {beast.status ? (
+          <View style={styles.statusChip}>
+            <Text style={styles.statusChipText}>{beast.status.type}</Text>
+          </View>
+        ) : null}
       </View>
-      <View style={styles.fighterInfo}>
-        <View style={styles.fighterTop}>
-          <Text style={styles.fighterName} numberOfLines={1}>
-            {beast.beast.name}
+
+      {/* Name, rarity, HP + energy */}
+      <View style={[styles.info, align === 'right' && styles.infoRight]}>
+        <Text style={[styles.name, align === 'right' && styles.tRight]} numberOfLines={1}>
+          {beast.beast.name}
+        </Text>
+        <View style={[styles.badgeRow, align === 'right' && styles.badgeRowR]}>
+          <Text style={[styles.badge, { color: el.color, borderColor: `${el.color}55`, backgroundColor: `${el.color}18` }]}>
+            {el.glyph} {el.label}
           </Text>
-          {beast.status ? <Text style={[styles.statusTag, { color: colors.enemy }]}>{beast.status.type}</Text> : null}
+          <Text style={[styles.badge, { color: rar, borderColor: `${rar}55`, backgroundColor: `${rar}18` }]}>{beast.beast.rarity}</Text>
         </View>
         <MeterBar
           value={beast.health}
           max={beast.beast.maxHealth}
           palette={low ? (['#F43F5E', '#BE123C'] as const) : (['#34E3B8', '#0F766E'] as const)}
         />
-        <View style={styles.metaRow}>
-          <Text style={styles.hpText}>
-            {beast.health}/{beast.beast.maxHealth} HP
-          </Text>
-          <Text style={[styles.elBadge, { color: el.color }]}>
-            {el.glyph} {el.label}
-          </Text>
-        </View>
+        <Text style={[styles.hpText, align === 'right' && styles.tRight]}>
+          {beast.health} / {beast.beast.maxHealth} HP
+        </Text>
         <MeterBar value={beast.energy} max={beast.beast.maxEnergy} palette={['#FBBF24', '#B45309'] as const} height={4} />
       </View>
-    </GlowCard>
+    </View>
   )
 }
 
@@ -556,30 +572,34 @@ const styles = StyleSheet.create({
   connError: { color: colors.enemy, fontSize: 13, textAlign: 'center', marginTop: 12, lineHeight: 18 },
   connHint: { color: colors.textFaint, fontSize: 12, textAlign: 'center', marginTop: 16 },
 
-  fighter: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
+  fighter: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8, paddingHorizontal: 6 },
   fighterRight: { flexDirection: 'row-reverse' },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
+  stage: { width: 118, height: 116, alignItems: 'center', justifyContent: 'center' },
+  stageGlow: { position: 'absolute', width: 106, height: 106, borderRadius: 53 },
+  platform: { position: 'absolute', bottom: 4, width: 84, height: 13, borderRadius: 7, opacity: 0.3, transform: [{ scaleX: 1.25 }] },
+  spriteFrame: {
+    width: 104,
+    height: 104,
+    borderRadius: 22,
+    borderWidth: 1.5,
     overflow: 'hidden',
+    backgroundColor: colors.surface2,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 10,
   },
-  avatarImg: { width: '100%', height: '100%' },
-  avatarGlyph: { fontSize: 30 },
-  fighterInfo: { flex: 1, gap: 6 },
-  fighterTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  fighterName: { color: colors.text, fontFamily: fonts.display, fontSize: 15, flexShrink: 1 },
-  statusTag: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  spriteImg: { width: '100%', height: '100%' },
+  spriteGlyph: { fontSize: 54, lineHeight: 104, textAlign: 'center', width: '100%' },
+  statusChip: { position: 'absolute', top: 0, right: 4, backgroundColor: colors.enemy, borderRadius: 7, paddingHorizontal: 7, paddingVertical: 2 },
+  statusChipText: { color: '#fff', fontSize: 9, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  info: { flex: 1, gap: 7 },
+  infoRight: {},
+  name: { color: colors.text, fontFamily: fonts.display, fontSize: 19 },
+  tRight: { textAlign: 'right' },
+  badgeRow: { flexDirection: 'row', gap: 6 },
+  badgeRowR: { justifyContent: 'flex-end' },
+  badge: { fontSize: 10, fontWeight: '700', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, borderWidth: 1, overflow: 'hidden', letterSpacing: 0.3 },
   hpText: { color: colors.textDim, fontSize: 11, fontFamily: fonts.mono },
-  elBadge: { fontSize: 11, fontWeight: '700' },
 
   turnBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6, paddingVertical: 10 },
   turnText: { fontSize: 14, fontWeight: '700', fontFamily: fonts.display },
