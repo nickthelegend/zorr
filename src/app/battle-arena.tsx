@@ -323,13 +323,25 @@ export default function BattleArena() {
       game.award(won ? WIN_XP : LOSE_XP)
       game.recordDuel(won)
       // Settle the $ZORR wager — the winner takes the pot once both peers report.
+      // We may report before the opponent (settled:false), so poll: reportWager
+      // is idempotent and returns our winnings the moment the pot settles.
       if (wagerRoomRef.current && !wagerReportedRef.current) {
         wagerReportedRef.current = true
-        reportWager(wagerRoomRef.current, won)
-          .then((r) => {
-            if (r.settled && r.iWon && r.won) setZorrWon(r.won)
-          })
-          .catch(() => {})
+        const wroom = wagerRoomRef.current
+        ;(async () => {
+          for (let i = 0; i < 8; i++) {
+            try {
+              const r = await reportWager(wroom, won)
+              if (r.settled) {
+                if (r.iWon && r.won) setZorrWon(r.won)
+                return
+              }
+            } catch {
+              /* relay hiccup — retry */
+            }
+            await new Promise((res) => setTimeout(res, 1200))
+          }
+        })()
       }
       // Publish the fresh record to the global leaderboard (fire-and-forget).
       submitStats({
