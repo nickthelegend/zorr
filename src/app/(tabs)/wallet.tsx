@@ -2,7 +2,7 @@ import { address as toAddress, createSolanaRpc, lamports } from '@solana/kit'
 import { useMutation } from '@tanstack/react-query'
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
-import { Coins, Droplet, KeyRound, Link2, RefreshCw, UserRound } from 'lucide-react-native'
+import { ArrowRight, Coins, Droplet, KeyRound, Link2, RefreshCw, ShieldCheck, UserRound } from 'lucide-react-native'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
@@ -229,6 +229,22 @@ export default function WalletScreen() {
             </Press>
           </GlowCard>
         </Animated.View>
+
+        {/* Private Payments — MagicBlock ephemeral rollups */}
+        <Animated.View entering={FadeInDown.delay(320)} style={{ marginTop: 16 }}>
+          <Press onPress={() => router.push('/payments')}>
+            <GlowCard tint={colors.primary} glow={colors.primary} contentStyle={styles.ppCard}>
+              <View style={styles.ppIcon}>
+                <ShieldCheck color={colors.primary} size={20} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.ppTitle}>Private Payments</Text>
+                <Text style={styles.ppSub}>Shield $ZORR on MagicBlock rollups · send private</Text>
+              </View>
+              <ArrowRight color={colors.textMuted} size={18} />
+            </GlowCard>
+          </Press>
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   )
@@ -284,4 +300,8 @@ const styles = StyleSheet.create({
   assetName: { color: colors.text, fontSize: 15, fontWeight: '600' },
   assetSym: { color: colors.textFaint, fontSize: 11, marginTop: 2 },
   assetAmount: { color: colors.text, fontSize: 16, fontFamily: fonts.mono },
+  ppCard: { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 16 },
+  ppIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primaryBorder, alignItems: 'center', justifyContent: 'center' },
+  ppTitle: { color: colors.text, fontSize: 15.5, fontWeight: '700' },
+  ppSub: { color: colors.textDim, fontSize: 11.5, marginTop: 2 },
 })
