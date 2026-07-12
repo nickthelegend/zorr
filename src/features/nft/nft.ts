@@ -7,28 +7,46 @@ export const CLAIM_RELAY_URL = process.env.EXPO_PUBLIC_CLAIM_RELAY_URL || 'http:
 
 const OWNER_SECRET_KEY = 'zorr.owner.secret' // 32-byte Ed25519 seed (JSON array)
 const LEGACY_OWNER_KEY = 'zorr.owner.address' // pre-fix installs stored only the address
+const PRIVY_OWNER_KEY = 'zorr.owner.privy' // the signed-in Privy embedded wallet (the REAL owner)
 
-// The device's own Solana wallet — it holds this player's claimed Guardian NFTs.
-// The 32-byte secret is generated once and kept in the OS keystore, so the wallet
-// is recoverable and can actually SIGN for what it owns (not just a stranded
-// address). The relay drops NFTs to it; getOwnerSigner() exposes it for on-chain
-// moves. Legacy installs that only stored an address keep it for display continuity.
+// The player's wallet that owns their $ZORR + Guardian NFTs. Once signed in with
+// Privy, THAT wallet is the owner — no shared/temp key. A per-device keypair is
+// only a fallback before the Privy wallet resolves (or a brand-new install).
+let privyOwner: string | null = null
 let ownerPromise: Promise<{ address: string; signer: KeyPairSigner | null }> | null = null
+
+/**
+ * Point $ZORR + NFT ownership at the signed-in Privy wallet. Called from
+ * <PrivyOwnerSync> the moment the embedded wallet resolves, and persisted so the
+ * next launch keys assets to the same Privy wallet immediately.
+ */
+export function setPrivyOwner(addr: string | null | undefined) {
+  if (addr && addr !== privyOwner) {
+    privyOwner = addr
+    ownerPromise = null // re-resolve the owner to the Privy wallet
+    SecureStore.setItemAsync(PRIVY_OWNER_KEY, addr).catch(() => {})
+  }
+}
+
 function loadOwner() {
   if (!ownerPromise) {
     ownerPromise = (async () => {
+      // The signed-in Privy wallet is the owner. It signs via Privy (not a raw
+      // keypair here), so no local signer — the relay keys assets to this address.
+      const privy = privyOwner || (await SecureStore.getItemAsync(PRIVY_OWNER_KEY))
+      if (privy) {
+        privyOwner = privy
+        return { address: privy, signer: null }
+      }
       const stored = await SecureStore.getItemAsync(OWNER_SECRET_KEY)
       if (stored) {
         const signer = await createKeyPairSignerFromPrivateKeyBytes(Uint8Array.from(JSON.parse(stored) as number[]))
         return { address: signer.address, signer }
       }
-      // Legacy device (old code discarded the key): keep the address so NFTs
-      // already dropped there still resolve as owned — but it can't be signed for.
       const legacy = await SecureStore.getItemAsync(LEGACY_OWNER_KEY)
       if (legacy) return { address: legacy, signer: null }
-      // Fresh device: mint a real, recoverable keypair and persist its secret.
-      // crypto.getRandomValues comes from the react-native-quick-crypto polyfill
-      // (src/polyfill.js) — the same global crypto @solana/kit already relies on.
+      // Brand-new install, not yet signed in: a temporary per-device key so the
+      // app still functions; setPrivyOwner() takes over as soon as login resolves.
       const secret = crypto.getRandomValues(new Uint8Array(32))
       const signer = await createKeyPairSignerFromPrivateKeyBytes(secret)
       await SecureStore.setItemAsync(OWNER_SECRET_KEY, JSON.stringify([...secret]))
@@ -38,7 +56,7 @@ function loadOwner() {
   return ownerPromise
 }
 
-/** The device wallet address that owns this player's claimed Guardian NFTs. */
+/** The wallet address that owns this player's $ZORR + Guardian NFTs (Privy once signed in). */
 export async function getOwnerAddress(): Promise<string> {
   return (await loadOwner()).address
 }

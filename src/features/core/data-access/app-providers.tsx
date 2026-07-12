@@ -7,6 +7,7 @@ import { ReactNode } from 'react'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
 import { GameProvider } from '../../game/game-store'
+import { PrivyOwnerSync } from './privy-owner-sync'
 
 const cluster = createSolanaDevnet()
 const identity: AppIdentity = { name: 'Zorr', uri: 'zorr://zorr' }
@@ -25,6 +26,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <QueryClientProvider client={queryClient}>
           <PrivyProvider appId={privyAppId} clientId={privyClientId}>
             <MobileWalletProvider cluster={cluster} identity={identity}>
+              <PrivyOwnerSync />
               <GameProvider>{children}</GameProvider>
             </MobileWalletProvider>
             {/* Privy's official modal UI (login, MFA) — the "traditional" Privy experience. */}
