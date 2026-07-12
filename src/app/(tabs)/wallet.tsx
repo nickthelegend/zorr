@@ -102,7 +102,7 @@ export default function WalletScreen() {
           ) : !privy.isLoggedIn ? (
             <>
               <Text style={styles.privyHint}>
-                Playing as guest. Sign in with email and Privy spins up a self-custodial Solana wallet — no seed phrase.
+                Sign in with Google or email and Privy spins up a self-custodial Solana wallet — no seed phrase.
               </Text>
               <TouchableOpacity style={styles.privyBtn} activeOpacity={0.85} onPress={() => router.replace('/login')}>
                 <UserRound color={colors.text} size={16} />
