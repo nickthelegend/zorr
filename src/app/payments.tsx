@@ -69,7 +69,7 @@ export default function PaymentsScreen() {
   const amtValid = Number.isFinite(amt) && amt > 0
 
   // Which balance funds the current action → drives Max + validation.
-  const sourceBal = mode === 'shield' ? base : mode === 'withdraw' ? priv : visibility === 'private' ? priv : base
+  const sourceBal = mode === 'withdraw' ? priv : base // shield + send draw from spendable
   const sendReady = mode !== 'send' || to.trim().length >= 32
   const overBalance = sourceBal != null && amt > sourceBal + 1e-9
   const canSubmit = amtValid && sendReady && !overBalance && !busy
@@ -96,7 +96,7 @@ export default function PaymentsScreen() {
         sig = await transfer({ to: to.trim(), amount: units, visibility: 'public', fromBalance: 'base', toBalance: 'base' })
       }
       // Private sends settle off-chain (no on-chain signature) — don't offer a broken explorer link.
-      const onchainSig = sig.startsWith('private:') ? undefined : sig
+      const onchainSig = sig.startsWith('private:') || sig.startsWith('sent:') ? undefined : sig
       setResult({ ok: true, text: `${label} confirmed`, sig: onchainSig })
       playSfx(mode === 'shield' ? 'shield' : 'coin')
       pushNote({ kind: 'swap', title: `${label} confirmed`, body: `${fmt(amt)} $ZORR` })
@@ -172,7 +172,7 @@ export default function PaymentsScreen() {
               ? 'Delegate your $ZORR to a MagicBlock Ephemeral Rollup — fast, private, on the TEE.'
               : mode === 'withdraw'
                 ? 'Undelegate your $ZORR from the rollup back to the Solana base layer.'
-                : 'Transfer $ZORR privately inside the rollup — logs & amounts are TEE-gated.'}
+                : 'Send $ZORR to another player — instant and off-chain, lands in their balance.'}
           </Text>
 
           {/* Amount */}

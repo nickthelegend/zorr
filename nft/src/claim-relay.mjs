@@ -530,6 +530,23 @@ async function zorrShieldFund(gameOwner, payWallet, amount) {
   return { status: 200, body: { signature: sig, amount: amt, spendable: zBal(gameOwner), account: dst.address.toBase58() } }
 }
 
+// Instant player-to-player $ZORR send (off-chain ledger transfer). A real TEE
+// transfer needs BOTH parties delegated to the rollup, so a private send to an
+// arbitrary game wallet can't settle on the TEE — this delivers straight to the
+// recipient's spendable balance, visible immediately on their wallet page.
+function zorrTransfer(from, to, amount) {
+  if (!isPubkey(from) || !isPubkey(to)) return { status: 400, body: { error: 'invalid address' } }
+  if (from === to) return { status: 400, body: { error: 'cannot send to yourself' } }
+  const amt = Math.floor(Number(amount) || 0)
+  if (amt <= 0) return { status: 400, body: { error: 'amount must be > 0' } }
+  if (zBal(from) < amt) return { status: 400, body: { error: `insufficient $ZORR — you have ${zBal(from)}` } }
+  zSet(from, zBal(from) - amt)
+  zSet(to, zBal(to) + amt)
+  zLog(from, { t: 'send', amount: amt, to })
+  zLog(to, { t: 'recv', amount: amt, from })
+  return { status: 200, body: { balance: zBal(from), amount: amt, to } }
+}
+
 async function zorrShieldRedeem(gameOwner, sig, amount) {
   if (!token) return { status: 503, body: { error: '$ZORR token not launched' } }
   if (!isPubkey(gameOwner)) return { status: 400, body: { error: 'invalid owner' } }
@@ -756,6 +773,9 @@ http
     }
     if (req.method === 'POST' && url.pathname === '/zorr/shield/fund') {
       return withBody(req, res, async (b) => { const r = await zorrShieldFund(b.gameOwner, b.payWallet, b.amount); send(res, r.status, r.body) })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/transfer') {
+      return withBody(req, res, (b) => { const r = zorrTransfer(b.from, b.to, b.amount); send(res, r.status, r.body) })
     }
     if (req.method === 'POST' && url.pathname === '/zorr/shield/redeem') {
       return withBody(req, res, async (b) => { const r = await zorrShieldRedeem(b.gameOwner, b.sig, b.amount); send(res, r.status, r.body) })

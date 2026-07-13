@@ -2,7 +2,7 @@ import { Keypair, PublicKey } from '@solana/web3.js'
 import * as SecureStore from 'expo-secure-store'
 
 import { fetchZorrBalance, getOwnerAddress } from '../nft/nft'
-import { explorerTx as teeExplorerTx, teeBalances, teeSend, teeShield, teeTransferToTreasury, teeWithdraw, ZORR_DECIMALS as DEC } from './tee'
+import { explorerTx as teeExplorerTx, teeBalances, teeShield, teeTransferToTreasury, teeWithdraw, ZORR_DECIMALS as DEC } from './tee'
 
 // Private Payments = REAL MagicBlock TEE Ephemeral Rollup, drawing from your
 // ACTUAL spendable $ZORR (the same balance shown on the wallet page) — not a
@@ -109,16 +109,28 @@ export async function withdraw(_amount: number): Promise<string> {
   return tSig
 }
 
-/** Send $ZORR privately (or publicly) to another wallet inside the TEE rollup. */
+/**
+ * Send $ZORR to another player. Delivers instantly to the recipient's spendable
+ * balance (off-chain ledger) — a real TEE transfer would require the recipient to
+ * be delegated to the rollup too, which an arbitrary wallet isn't.
+ */
 export async function transfer(opts: {
   to: string
   amount: number // base units
-  visibility: 'public' | 'private'
+  visibility?: 'public' | 'private'
   fromBalance?: 'base' | 'ephemeral'
   toBalance?: 'base' | 'ephemeral'
 }): Promise<string> {
   const whole = Math.max(1, Math.floor(opts.amount / 10 ** DEC))
-  return teeSend(await keypair(), opts.to, whole, opts.visibility === 'private')
+  const from = await getOwnerAddress()
+  const r = await fetch(`${CLAIM_RELAY_URL}/zorr/transfer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to: opts.to, amount: whole }),
+  })
+  const j = await r.json()
+  if (!r.ok || j.error) throw new Error(j.error || 'send failed')
+  return `sent:${whole}` // off-chain — no on-chain signature
 }
 
 // ---- unit helpers ----
