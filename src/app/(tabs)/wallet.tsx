@@ -27,7 +27,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { BeastCard } from '../../components/beast-card'
 import { GlowCard, Press } from '../../components/ui'
-import { fetchOwned, fetchZorrBalance, getOwnerAddress, type OwnedBeast } from '../../features/nft/nft'
+import { fetchOwned, fetchZorrBalance, fetchZorrHistory, fetchZorrOnchain, getOwnerAddress, type OwnedBeast, type ZorrEvent } from '../../features/nft/nft'
 import { DEVNET_RPC, useDevnetBalance } from '../../features/wallet/use-devnet-balance'
 import { useSolanaAccount } from '../../features/wallet/use-solana-account'
 import { colors, fonts, radius } from '../../theme'
@@ -46,7 +46,9 @@ export default function WalletScreen() {
   const addr = privy.address ?? signerAddr
   const { data: balance, isLoading, refetch, isRefetching } = useDevnetBalance(addr)
   const [zorr, setZorr] = useState<number | null>(null)
+  const [zorrChain, setZorrChain] = useState<number | null>(null)
   const [beasts, setBeasts] = useState<OwnedBeast[] | null>(null)
+  const [history, setHistory] = useState<ZorrEvent[] | null>(null)
   const [showQR, setShowQR] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -54,6 +56,12 @@ export default function WalletScreen() {
     fetchZorrBalance()
       .then(setZorr)
       .catch(() => setZorr(null))
+    fetchZorrOnchain()
+      .then(setZorrChain)
+      .catch(() => setZorrChain(null))
+    fetchZorrHistory()
+      .then(setHistory)
+      .catch(() => setHistory([]))
     getOwnerAddress()
       .then(fetchOwned)
       .then(setBeasts)
@@ -188,7 +196,8 @@ export default function WalletScreen() {
               <Text style={styles.cardTitle}>ASSETS</Text>
             </View>
             <AssetRow symbol="◎" color={colors.primary} name="Solana" sub="SOL · DEVNET" amount={(balance ?? 0).toFixed(4)} />
-            <AssetRow symbol="Z" color={colors.gold} name="$ZORR" sub="SPL · SPENDABLE" amount={zorr === null ? '—' : zorr.toLocaleString('en-US')} divider />
+            <AssetRow symbol="Z" color={colors.gold} name="$ZORR" sub="SPENDABLE · ROLLUP LEDGER" amount={zorr === null ? '—' : zorr.toLocaleString('en-US')} divider />
+            <AssetRow symbol="Z" color={colors.territory} name="$ZORR" sub="ON-CHAIN · IN YOUR WALLET" amount={zorrChain === null ? '—' : zorrChain.toLocaleString('en-US')} divider />
           </GlowCard>
         </Animated.View>
 
@@ -219,8 +228,29 @@ export default function WalletScreen() {
           )}
         </Animated.View>
 
+        {/* Transactions */}
+        <Animated.View entering={FadeInDown.delay(210)} style={{ marginTop: 18 }}>
+          <View style={styles.sectionHead}>
+            <Text style={styles.sectionTitle}>Transactions</Text>
+            {history && history.length ? <Text style={styles.viewAll}>{history.length}</Text> : null}
+          </View>
+          {history === null ? (
+            <ActivityIndicator color={colors.primary} style={{ marginVertical: 18 }} />
+          ) : history.length === 0 ? (
+            <GlowCard contentStyle={styles.txEmpty}>
+              <Text style={styles.emptySub}>No activity yet — swap SOL for $ZORR or claim a Guardian to get started.</Text>
+            </GlowCard>
+          ) : (
+            <GlowCard contentStyle={styles.txCard}>
+              {history.slice(0, 12).map((e, i) => (
+                <TxRow key={`${e.ts}-${i}`} event={e} divider={i > 0} />
+              ))}
+            </GlowCard>
+          )}
+        </Animated.View>
+
         {/* Private Payments */}
-        <Animated.View entering={FadeInDown.delay(240)} style={{ marginTop: 18 }}>
+        <Animated.View entering={FadeInDown.delay(260)} style={{ marginTop: 18 }}>
           <Press onPress={() => router.push('/payments')}>
             <GlowCard tint={colors.primary} glow={colors.primary} contentStyle={styles.ppCard}>
               <View style={styles.ppIcon}>
@@ -260,6 +290,52 @@ function AssetRow({ symbol, color, name, sub, amount, divider }: { symbol: strin
       </View>
       <Text style={styles.assetAmount}>{amount}</Text>
     </View>
+  )
+}
+
+const TX_META: Record<string, { label: string; glyph: string; sign: number; color: string }> = {
+  swap: { label: 'Swapped SOL → $ZORR', glyph: '⇄', sign: 1, color: colors.gold },
+  withdraw: { label: 'Withdrew to wallet', glyph: '↑', sign: -1, color: colors.primary },
+  faucet: { label: 'Starter grant', glyph: '↓', sign: 1, color: colors.territory },
+  'wager-stake': { label: 'Wager staked', glyph: '⚔', sign: -1, color: colors.enemy },
+  'wager-win': { label: 'Wager won', glyph: '★', sign: 1, color: colors.territory },
+  'wager-refund': { label: 'Wager refunded', glyph: '↺', sign: 1, color: colors.textMuted },
+  claim: { label: 'Claimed Guardian', glyph: '★', sign: 0, color: colors.primary },
+}
+
+function relTime(ts: number) {
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000))
+  if (s < 60) return `${s}s ago`
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`
+  return `${Math.floor(s / 86400)}d ago`
+}
+
+function TxRow({ event, divider }: { event: ZorrEvent; divider?: boolean }) {
+  const meta = TX_META[event.t] ?? { label: event.t, glyph: '•', sign: 0, color: colors.textMuted }
+  const detail =
+    event.t === 'swap' && event.sol ? `${event.sol} SOL @ ${event.price?.toLocaleString('en-US') ?? '—'}/SOL` : event.t === 'claim' ? event.beast ?? 'Genesis 48' : event.sig ? 'on-chain ✓ tap to view' : null
+  const amount = event.t === 'claim' ? '' : `${meta.sign < 0 ? '−' : '+'}${event.amount.toLocaleString('en-US')}`
+  const explorer = event.sig ? `https://explorer.solana.com/tx/${event.sig}?cluster=devnet` : null
+
+  const inner = (
+    <View style={[styles.txRow, divider && styles.txRowDivider]}>
+      <View style={[styles.txBadge, { borderColor: meta.color }]}>
+        <Text style={[styles.txGlyph, { color: meta.color }]}>{meta.glyph}</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.txLabel}>{meta.label}</Text>
+        <Text style={styles.txSub}>{[detail, relTime(event.ts)].filter(Boolean).join(' · ')}</Text>
+      </View>
+      {amount ? <Text style={[styles.txAmount, { color: meta.sign < 0 ? colors.textMuted : colors.gold }]}>{amount}</Text> : null}
+    </View>
+  )
+  return explorer ? (
+    <TouchableOpacity activeOpacity={0.7} onPress={() => Linking.openURL(explorer)}>
+      {inner}
+    </TouchableOpacity>
+  ) : (
+    inner
   )
 }
 
@@ -333,6 +409,16 @@ const styles = StyleSheet.create({
   assetName: { color: colors.text, fontSize: 15, fontWeight: '600' },
   assetSym: { color: colors.textFaint, fontSize: 11, marginTop: 2 },
   assetAmount: { color: colors.text, fontSize: 16, fontFamily: fonts.mono },
+
+  txCard: { paddingVertical: 6, paddingHorizontal: 16 },
+  txEmpty: { padding: 20, alignItems: 'center' },
+  txRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  txRowDivider: { borderTopWidth: 1, borderTopColor: colors.hairline },
+  txBadge: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  txGlyph: { fontSize: 16, fontWeight: '800' },
+  txLabel: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  txSub: { color: colors.textFaint, fontSize: 11, marginTop: 2, fontFamily: fonts.data },
+  txAmount: { fontSize: 15, fontFamily: fonts.mono, fontWeight: '700' },
 
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { color: colors.text, fontFamily: fonts.display, fontSize: 18 },

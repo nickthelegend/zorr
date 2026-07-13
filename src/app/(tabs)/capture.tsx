@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { explorerTxUrl, logRunOnChain, UnfundedError } from '../../features/chain/claim'
 import { captureTileOnER, ZORR_PROGRAM } from '../../features/chain/er'
 import { darkMapStyle } from '../../features/capture/map-style'
-import { territoryOutline, tilePolygon } from '../../features/capture/tiles'
+import { tilePolygon } from '../../features/capture/tiles'
 import { useGame } from '../../features/game/game-store'
 import { EMPIRE_DEG, empiresAround, rivalForTile } from '../../features/game/rivals'
 import { hitHaptic, winHaptic, failHaptic } from '../../features/core/haptics'
@@ -210,7 +210,6 @@ export default function RunScreen() {
   }, [])
 
   const ownedTiles = useMemo(() => [...game.tiles], [game.tiles])
-  const ownedOutline = useMemo(() => territoryOutline(ownedTiles), [ownedTiles])
   const glow = game.color + '26'
 
   // Rival empires near the player — big organic bordered regions (INTVL-style),
@@ -264,17 +263,16 @@ export default function RunScreen() {
             onPress={() => setToast({ kind: 'ok', msg: `${e.clan.name} territory — run through it to steal ground (2× XP)` })}
           />
         ))}
-        {/* Your territory — one smooth glowing region, not a grid */}
-        {ownedOutline.length >= 3 ? (
-          <>
-            <Polygon coordinates={ownedOutline} strokeColor={game.color + '4D'} strokeWidth={11} fillColor="transparent" />
-            <Polygon coordinates={ownedOutline} strokeColor={game.color} strokeWidth={4} fillColor={game.color + '3D'} />
-          </>
-        ) : (
-          ownedTiles.map((key) => (
-            <Polygon key={key} coordinates={tilePolygon(key)} strokeWidth={0} fillColor={game.color + '66'} />
-          ))
-        )}
+        {/* Your territory — captured box by box: one glowing grid cell per tile */}
+        {ownedTiles.map((key) => (
+          <Polygon
+            key={key}
+            coordinates={tilePolygon(key)}
+            strokeColor={game.color + 'AA'}
+            strokeWidth={1.5}
+            fillColor={game.color + '3D'}
+          />
+        ))}
         {run.path.length > 1 ? (
           <>
             <Polyline coordinates={run.path} strokeColor={glow} strokeWidth={16} />

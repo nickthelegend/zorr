@@ -144,7 +144,10 @@ export async function fetchLeaderboard(): Promise<PlayerStats[]> {
 // MagicBlock-ER style) and is redeemable to the device wallet's real on-chain
 // token account via withdraw. Every call is keyed by the device owner address.
 
-export type ZorrConfig = { name: string; symbol: string; mint: string; decimals: number; supply: number; rate: number; faucet: number; cluster: string }
+export type ZorrConfig = { name: string; symbol: string; mint: string; decimals: number; supply: number; rate: number; faucet: number; cluster: string; feeBps?: number; reserveSol?: number; reserveZorr?: number; treasury?: string }
+
+/** One $ZORR ledger event (swap, withdraw, faucet, wager, claim), newest first. */
+export type ZorrEvent = { t: 'swap' | 'withdraw' | 'faucet' | 'wager-stake' | 'wager-win' | 'wager-refund' | 'claim'; amount: number; sol?: number; sig?: string; price?: number; beast?: string; asset?: string; room?: string; ts: number }
 
 async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const r = await fetch(`${CLAIM_RELAY_URL}${path}`, {
@@ -167,11 +170,30 @@ export async function fetchZorrConfig(): Promise<ZorrConfig | null> {
   }
 }
 
-/** This device's spendable $ZORR balance. */
+/** This wallet's spendable (fast-ledger) $ZORR balance — what you swap + wager with. */
 export async function fetchZorrBalance(): Promise<number> {
   const owner = await getOwnerAddress()
   const { balance } = await get<{ balance: number }>(`/zorr/balance?owner=${encodeURIComponent(owner)}`)
   return balance ?? 0
+}
+
+/** The wallet's REAL on-chain $ZORR balance (where withdrawals land). */
+export async function fetchZorrOnchain(): Promise<number> {
+  const owner = await getOwnerAddress()
+  const { balance } = await get<{ balance: number }>(`/zorr/onchain-balance?owner=${encodeURIComponent(owner)}`)
+  return balance ?? 0
+}
+
+/** Live AMM quote for a SOL→$ZORR buy: ZORR out, effective rate, price impact (0–1). */
+export async function fetchZorrQuote(sol: number): Promise<{ got: number; rate: number; impact: number; spot: number }> {
+  return get(`/zorr/quote?sol=${encodeURIComponent(sol)}`)
+}
+
+/** This wallet's $ZORR tx history (swaps, withdrawals, wagers, claims), newest first. */
+export async function fetchZorrHistory(): Promise<ZorrEvent[]> {
+  const owner = await getOwnerAddress()
+  const { events } = await get<{ events: ZorrEvent[] }>(`/zorr/history?owner=${encodeURIComponent(owner)}`)
+  return events ?? []
 }
 
 /** One-time starter $ZORR grant so a new player can wager without SOL. */
@@ -180,10 +202,12 @@ export async function claimZorrFaucet(): Promise<{ balance: number; granted: num
   return postJson('/zorr/faucet', { owner })
 }
 
-/** Swap SOL → $ZORR (devnet: treasury-funded; the $ZORR is real + withdrawable). */
-export async function swapZorr(sol: number): Promise<{ balance: number; got: number; rate: number }> {
+/** Swap SOL → $ZORR on the constant-product AMM; the $ZORR is real + withdrawable.
+ *  Pass `paidSig` (a Privy-signed SOL-transfer signature) for a real on-chain swap;
+ *  omit it to let the devnet pool fund the SOL leg. */
+export async function swapZorr(sol: number, paidSig?: string): Promise<{ balance: number; got: number; rate: number; impact?: number; spot?: number; paid?: boolean; sig?: string }> {
   const owner = await getOwnerAddress()
-  return postJson('/zorr/swap', { owner, sol })
+  return postJson('/zorr/swap', { owner, sol, paidSig })
 }
 
 /** Stake into a duel room's $ZORR pot. Both players must stake the same amount. */

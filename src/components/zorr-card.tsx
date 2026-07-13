@@ -1,13 +1,14 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import { ArrowRight, Coins, Gift, X } from 'lucide-react-native'
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
-import { claimZorrFaucet, fetchZorrBalance, fetchZorrConfig, swapZorr, withdrawZorr, type ZorrConfig } from '../features/nft/nft'
+import { claimZorrFaucet, fetchZorrBalance, fetchZorrConfig, fetchZorrQuote, swapZorr, withdrawZorr, type ZorrConfig } from '../features/nft/nft'
+import { useSolPayment } from '../features/wallet/use-sol-payment'
 import { colors, fonts, radius } from '../theme'
 import { GlowCard, Press } from './ui'
 
-const SOL_STEPS = [0.5, 1, 5]
+const SOL_STEPS = [0.25, 0.5, 1]
 const fmt = (n: number) => n.toLocaleString('en-US')
 
 /**
@@ -84,16 +85,34 @@ function SwapSheet({
   onClose: () => void
   onChanged: () => void
 }) {
-  const [sol, setSol] = useState(1)
+  const [sol, setSol] = useState(0.5)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
-  const get = Math.floor(sol * config.rate)
+  const [quote, setQuote] = useState<{ got: number; rate: number; impact: number } | null>(null)
+  const { paySol, canPay } = useSolPayment()
 
-  const run = async (fn: () => Promise<string>) => {
+  // Live AMM quote — refreshes as the SOL amount changes so the buyer sees the
+  // real price + impact for this trade size, not a fixed rate.
+  useEffect(() => {
+    let live = true
+    fetchZorrQuote(sol)
+      .then((q) => live && setQuote(q))
+      .catch(() => live && setQuote(null))
+    return () => {
+      live = false
+    }
+  }, [sol])
+
+  const get = quote?.got ?? Math.floor(sol * config.rate)
+  const impactPct = (quote?.impact ?? 0) * 100
+
+  const run = async (fn: () => Promise<{ msg: string; url?: string }>) => {
     setBusy(true)
     setMsg(null)
     try {
-      setMsg(await fn())
+      const r = await fn()
+      setMsg(r.msg)
+      if (r.url) Linking.openURL(r.url).catch(() => {})
       onChanged()
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e))
@@ -128,10 +147,20 @@ function SwapSheet({
             <ArrowRight color={colors.textDim} size={18} />
             <Text style={styles.previewZorr}>{fmt(get)} ZORR</Text>
           </View>
+          <Text style={styles.rateLine}>
+            1 SOL ≈ {fmt(Math.round(get / sol))} ZORR · impact {impactPct.toFixed(2)}% · constant-product AMM
+          </Text>
 
           <TouchableOpacity activeOpacity={0.9} disabled={busy} onPress={() => run(async () => {
-            const r = await swapZorr(sol)
-            return `Swapped — +${fmt(r.got)} ZORR`
+            // Try a real on-chain SOL payment from the Privy wallet; if it can't
+            // sign / has no SOL, the relay funds the SOL leg (devnet demo).
+            const paidSig = config.treasury && canPay ? await paySol(config.treasury, sol) : null
+            const r = await swapZorr(sol, paidSig ?? undefined)
+            return {
+              msg: r.paid
+                ? `Paid ${sol} SOL from your wallet → +${fmt(r.got)} $ZORR ✓ real on-chain swap`
+                : `Swapped ${sol} SOL → +${fmt(r.got)} $ZORR at ${fmt(r.rate)}/SOL`,
+            }
           })}>
             <LinearGradient colors={['#FBBF24', '#B45309']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.cta}>
               {busy ? <ActivityIndicator color="#1a1206" /> : <Text style={styles.ctaText}>Swap {sol} SOL → {fmt(get)} ZORR</Text>}
@@ -141,14 +170,14 @@ function SwapSheet({
           <View style={styles.secondaryRow}>
             <TouchableOpacity disabled={busy} style={styles.secondary} onPress={() => run(async () => {
               const r = await claimZorrFaucet()
-              return r.granted ? `Claimed ${r.granted} starter ZORR` : 'Starter grant already claimed'
+              return { msg: r.granted ? `Claimed ${r.granted} starter ZORR` : 'Starter grant already claimed' }
             })}>
               <Gift color={colors.territory} size={15} />
               <Text style={styles.secondaryText}>Starter 500</Text>
             </TouchableOpacity>
             <TouchableOpacity disabled={busy} style={styles.secondary} onPress={() => run(async () => {
               const r = await withdrawZorr()
-              return `Withdrew ${fmt(r.amount)} ZORR on-chain ⚡`
+              return { msg: `Withdrew ${fmt(r.amount)} $ZORR — now in your wallet on-chain ✓  Opening explorer…`, url: r.explorer }
             })}>
               <ArrowRight color={colors.primary} size={15} />
               <Text style={styles.secondaryText}>Withdraw on-chain</Text>
@@ -156,7 +185,7 @@ function SwapSheet({
           </View>
 
           {msg ? <Text style={styles.msg}>{msg}</Text> : null}
-          <Text style={styles.foot}>Devnet · $ZORR is a real SPL token. Balances settle instantly on the Zorr relay and withdraw to your Solana wallet.</Text>
+          <Text style={styles.foot}>Devnet · $ZORR is a real SPL token on a constant-product AMM. Spendable balance settles instantly on the Zorr rollup; Withdraw sends it to your Solana wallet on-chain.</Text>
         </View>
       </View>
     </Modal>
@@ -213,6 +242,7 @@ const styles = StyleSheet.create({
   preview: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, paddingVertical: 6 },
   previewSol: { color: colors.textMuted, fontSize: 18, fontFamily: fonts.display },
   previewZorr: { color: colors.gold, fontSize: 20, fontFamily: fonts.display },
+  rateLine: { color: colors.textFaint, fontSize: 11, textAlign: 'center', fontFamily: fonts.mono, marginTop: -6 },
   cta: { paddingVertical: 16, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   ctaText: { color: '#1a1206', fontSize: 15, fontWeight: '800' },
   secondaryRow: { flexDirection: 'row', gap: 12 },
