@@ -17,6 +17,8 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Aurora } from '../components/aurora'
+import { playSfx } from '../features/core/audio'
+import { pushNote } from '../features/core/notifications-store'
 import {
   deposit,
   explorerTx,
@@ -94,6 +96,8 @@ export default function PaymentsScreen() {
         sig = await transfer({ to: to.trim(), amount: units, visibility: 'public', fromBalance: 'base', toBalance: 'base' })
       }
       setResult({ ok: true, text: `${label} confirmed`, sig })
+      playSfx(mode === 'shield' ? 'shield' : 'coin')
+      pushNote({ kind: 'swap', title: `${label} confirmed`, body: `${fmt(amt)} $ZORR` })
       setAmount('')
       setTimeout(refresh, 2500)
     } catch (e) {

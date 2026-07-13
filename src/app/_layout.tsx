@@ -7,6 +7,7 @@ import * as SplashScreen from 'expo-splash-screen'
 import { useEffect } from 'react'
 
 import { AppProviders } from '../features/core/data-access/app-providers'
+import { initNotifications } from '../features/core/push'
 import { colors } from '../theme'
 
 SplashScreen.preventAutoHideAsync()
@@ -28,6 +29,11 @@ export default function Layout() {
       SplashScreen.hideAsync()
     }
   }, [fontsLoaded])
+
+  // Ask for notification permission + set up the Android channel once, up front.
+  useEffect(() => {
+    initNotifications()
+  }, [])
 
   if (!fontsLoaded) {
     return null

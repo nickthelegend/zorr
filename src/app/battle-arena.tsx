@@ -28,7 +28,10 @@ import { useNearby } from '../features/battle/use-nearby'
 import { useSocket } from '../features/battle/use-socket'
 import { requestVrfSeed } from '../features/chain/vrf'
 import { hexSeed, scopeFromString } from '../features/chain/vrf-seed'
+import { Confetti } from '../components/confetti'
+import { playSfx, startBattleBgm, stopBattleBgm } from '../features/core/audio'
 import { failHaptic, hitHaptic, winHaptic } from '../features/core/haptics'
+import { pushNote } from '../features/core/notifications-store'
 import { useGame } from '../features/game/game-store'
 import { cancelWager, reportWager, soloSettle, soloStake, stakeWager, submitStats } from '../features/nft/nft'
 import { tileAreaKm2 } from '../features/run/use-run-session'
@@ -279,6 +282,7 @@ export default function BattleArena() {
       const ability = s[s.active].beast.abilities[index]
       if (!ability || ability.energyCost > s[s.active].energy) return
       hitHaptic()
+      playSfx('hit')
       if (modeRef.current !== 'bot') transportRef.current.send(encodeBattleMsg({ type: 'move', turn: s.turn, index }))
       setState(resolveMove(s, ability.id))
     },
@@ -352,13 +356,34 @@ export default function BattleArena() {
     return () => clearInterval(id)
   }, [sTurn, sActive, sOver, phase])
 
+  // Battle music: loop the theme while fighting, silence it everywhere else.
+  useEffect(() => {
+    if (phase === 'battle') startBattleBgm()
+    else stopBattleBgm()
+    return () => stopBattleBgm()
+  }, [phase])
+
   // Award + move to result exactly once.
   useEffect(() => {
     if (state?.over && !rewardedRef.current) {
       rewardedRef.current = true
       const won = state.winner === mySideRef.current
-      if (won) winHaptic()
-      else failHaptic()
+      if (won) {
+        winHaptic()
+        playSfx('win')
+      } else {
+        failHaptic()
+        playSfx('lose')
+      }
+      stopBattleBgm()
+      const foeName = state[mySideRef.current === 'p1' ? 'p2' : 'p1'].beast.name
+      pushNote({
+        kind: 'wager',
+        title: won ? '⚔️ Victory' : 'Defeated',
+        body: won
+          ? `You defeated ${foeName}${stake > 0 ? ` — won ${(stake * 2).toLocaleString()} $ZORR` : ''}`
+          : `${foeName} took this duel${stake > 0 ? ` — −${stake.toLocaleString()} $ZORR` : ''}`,
+      })
       game.award(won ? WIN_XP : LOSE_XP)
       game.recordDuel(won)
       // Settle the $ZORR wager — the winner takes the pot once both peers report.
@@ -474,6 +499,7 @@ export default function BattleArena() {
     return (
       <View style={styles.root}>
         <Aurora />
+        <Confetti variant={won ? 'win' : 'lose'} />
         <SafeAreaView style={styles.connectSafe}>
           <Animated.View entering={FadeIn} style={styles.connectCenter}>
             <View style={[styles.resultCrest, { borderColor: won ? colors.gold : colors.border }]}>

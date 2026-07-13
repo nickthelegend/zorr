@@ -1,5 +1,5 @@
 import { router } from 'expo-router'
-import { HelpCircle, Play, Shield, Swords, Trophy } from 'lucide-react-native'
+import { Bell, HelpCircle, Play, Shield, Swords, Trophy } from 'lucide-react-native'
 import { useEffect } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { LevelRing } from '../../components/level-ring'
 import { CTA, Eyebrow, GlowCard, Press } from '../../components/ui'
 import { ZorrCard } from '../../components/zorr-card'
+import { useNotifications } from '../../features/core/notifications-store'
 import { levelForXp, useGame } from '../../features/game/game-store'
 import { formatKm, formatWinRate, nextRank, rankForLevel } from '../../features/game/stats'
 import { fetchOwned, getOwnerAddress } from '../../features/nft/nft'
@@ -41,6 +42,7 @@ function LogCell({
 
 export default function HomeScreen() {
   const game = useGame()
+  const { unread } = useNotifications()
   const { level, into, need } = levelForXp(game.xp)
   const rank = rankForLevel(level)
   const promo = nextRank(level)
@@ -79,6 +81,16 @@ export default function HomeScreen() {
             </View>
           </Press>
           <View style={styles.headerActions}>
+            <Press onPress={() => router.push('/notifications')}>
+              <View style={styles.bell}>
+                <Bell color={colors.text} size={19} />
+                {unread > 0 ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
+                  </View>
+                ) : null}
+              </View>
+            </Press>
             <Press onPress={() => router.push('/leaderboard')}>
               <View style={styles.bell}>
                 <Trophy color={colors.gold} size={19} />
@@ -190,6 +202,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  badge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: colors.enemy,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.background,
+  },
+  badgeText: { color: '#fff', fontSize: 9.5, fontWeight: '800' },
   heroContent: { padding: 20 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   heroLeft: { flex: 1 },

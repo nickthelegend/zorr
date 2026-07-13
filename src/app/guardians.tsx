@@ -12,7 +12,9 @@ import { beastImage } from '../features/beasts/beast-art'
 import { ELEMENT_META } from '../features/beasts/element'
 import { useGame } from '../features/game/game-store'
 import { assetExplorerUrl } from '../features/nft/nft'
+import { playSfx } from '../features/core/audio'
 import { failHaptic, winHaptic } from '../features/core/haptics'
+import { pushNote } from '../features/core/notifications-store'
 import { useGuardians } from '../features/nft/use-guardians'
 import { colors, fonts, radius } from '../theme'
 
@@ -68,7 +70,16 @@ export default function GuardiansScreen() {
               icon={<Sparkles color={colors.text} size={20} />}
               palette={['#8B5CF6', '#4C1D95']}
               textColor={colors.text}
-              onPress={async () => ((await g.claim()) ? winHaptic() : failHaptic())}
+              onPress={async () => {
+                const beast = await g.claim()
+                if (beast) {
+                  winHaptic()
+                  playSfx('shield')
+                  pushNote({ kind: 'guardian', title: '✨ Guardian summoned', body: `${beast.name} joined your roster — a Genesis NFT drawn by VRF` })
+                } else {
+                  failHaptic()
+                }
+              }}
               loading={g.claiming}
               disabled={!g.online || g.pool?.remaining === 0}
               style={{ marginTop: 14 }}

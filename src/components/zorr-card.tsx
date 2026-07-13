@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 
 import { claimZorrFaucet, depositZorr, fetchZorrBalance, fetchZorrConfig, fetchZorrOnchain, fetchZorrQuote, swapZorr, withdrawZorr, type ZorrConfig } from '../features/nft/nft'
+import { playSfx } from '../features/core/audio'
+import { pushNote } from '../features/core/notifications-store'
 import { useSolPayment } from '../features/wallet/use-sol-payment'
 import { colors, fonts, radius } from '../theme'
 import { GlowCard, Press } from './ui'
@@ -126,6 +128,7 @@ function SwapSheet({
     try {
       const r = await fn()
       setMsg(r.msg)
+      playSfx('coin')
       if (r.url) Linking.openURL(r.url).catch(() => {})
       onChanged()
     } catch (e) {
@@ -188,6 +191,7 @@ function SwapSheet({
             // sign / has no SOL, the relay funds the SOL leg (devnet demo).
             const paidSig = config.treasury && canPay ? await paySol(config.treasury, sol) : null
             const r = await swapZorr(sol, paidSig ?? undefined)
+            pushNote({ kind: 'swap', title: 'Swapped to $ZORR', body: `${sol} SOL → +${fmt(r.got)} $ZORR` })
             return {
               msg: r.paid
                 ? `Paid ${sol} SOL from your wallet → +${fmt(r.got)} $ZORR ✓ real on-chain swap`

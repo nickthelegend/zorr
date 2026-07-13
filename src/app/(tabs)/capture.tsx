@@ -22,7 +22,9 @@ import { darkMapStyle } from '../../features/capture/map-style'
 import { tilePolygon } from '../../features/capture/tiles'
 import { useGame } from '../../features/game/game-store'
 import { EMPIRE_DEG, empiresAround, rivalForTile } from '../../features/game/rivals'
+import { playSfx } from '../../features/core/audio'
 import { hitHaptic, winHaptic, failHaptic } from '../../features/core/haptics'
+import { pushNote } from '../../features/core/notifications-store'
 import { submitStats } from '../../features/nft/nft'
 import { formatDuration, formatPace, RunSummary, tileAreaKm2, useRunSession } from '../../features/run/use-run-session'
 import { colors, fonts, radius } from '../../theme'
@@ -76,6 +78,7 @@ export default function RunScreen() {
   const run = useRunSession({
     onCapture: (key) => {
       hitHaptic()
+      playSfx('capture')
       game.addCapture(key, rivalForTile(key) ? 2 : 1)
     },
   })
@@ -191,6 +194,7 @@ export default function RunScreen() {
         msg: `${captured} ${captured === 1 ? 'tile' : 'tiles'} on MagicBlock ER ⚡ ${totalMs}ms${extra > 0 ? ` (+${extra} more)` : ''}`,
         url: `https://explorer.solana.com/address/${ZORR_PROGRAM}?cluster=devnet`,
       })
+      pushNote({ kind: 'capture', title: 'Territory captured ⚡', body: `${captured} ${captured === 1 ? 'tile' : 'tiles'} on MagicBlock ER · ${totalMs}ms gasless` })
       setSummary(null)
     } catch {
       // Fall back to a base-layer run log if the ER path is unavailable.
