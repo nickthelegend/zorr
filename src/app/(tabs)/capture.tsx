@@ -17,7 +17,7 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { explorerTxUrl, logRunOnChain, UnfundedError } from '../../features/chain/claim'
-import { captureTileOnER, ZORR_PROGRAM } from '../../features/chain/er'
+import { captureTileOnER, commitTerritoryFromER, ZORR_PROGRAM } from '../../features/chain/er'
 import { darkMapStyle } from '../../features/capture/map-style'
 import { tilePolygon } from '../../features/capture/tiles'
 import { useGame } from '../../features/game/game-store'
@@ -187,11 +187,14 @@ export default function RunScreen() {
         captured += 1
         totalMs += ms
       }
+      // Complete the round-trip: commit the ER territory state back to base (best-
+      // effort — the captures above already landed on the ER either way).
+      const commit = await commitTerritoryFromER()
       winHaptic()
       const extra = s.tiles.length - captured
       setToast({
         kind: 'ok',
-        msg: `${captured} ${captured === 1 ? 'tile' : 'tiles'} on MagicBlock ER ⚡ ${totalMs}ms${extra > 0 ? ` (+${extra} more)` : ''}`,
+        msg: `${captured} ${captured === 1 ? 'tile' : 'tiles'} on MagicBlock ER ⚡ ${totalMs}ms${commit ? ' → committed to base' : ''}${extra > 0 ? ` (+${extra} more)` : ''}`,
         url: `https://explorer.solana.com/address/${ZORR_PROGRAM}?cluster=devnet`,
       })
       pushNote({ kind: 'capture', title: 'Territory captured ⚡', body: `${captured} ${captured === 1 ? 'tile' : 'tiles'} on MagicBlock ER · ${totalMs}ms gasless` })

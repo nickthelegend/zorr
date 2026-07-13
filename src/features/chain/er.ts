@@ -75,3 +75,48 @@ export async function captureTileOnER(tileX: number, tileY: number): Promise<{ s
   await rpc.sendTransaction(wire, { encoding: 'base64', skipPreflight: true }).send()
   return { signature, ms: Date.now() - t }
 }
+
+// The MagicBlock commit accounts injected by the program's `#[commit]` macro
+// (fixed addresses; discriminator from onchain/idl/zorr.json).
+const COMMIT_DISCRIMINATOR = new Uint8Array([223, 140, 142, 165, 229, 208, 156, 74])
+const MAGIC_PROGRAM = 'Magic11111111111111111111111111111111111111'
+const MAGIC_CONTEXT = 'MagicContext1111111111111111111111111111111'
+
+/**
+ * Commit the ER territory state back to the Solana devnet base layer — the
+ * second half of the round-trip. Best-effort and called ONCE at run-end, AFTER
+ * the tile captures already landed on the ER, so a failed/absent commit never
+ * affects the fast gasless captures (returns null instead of throwing).
+ */
+export async function commitTerritoryFromER(): Promise<{ signature: string; ms: number } | null> {
+  try {
+    const signer = await getSigner()
+    const territory = await getTerritoryPda()
+    const rpc = createSolanaRpc(ER_RPC)
+    const { value: blockhash } = await rpc.getLatestBlockhash().send()
+    const instruction = {
+      programAddress: address(ZORR_PROGRAM),
+      accounts: [
+        { address: signer.address, role: AccountRole.WRITABLE_SIGNER },
+        { address: address(territory), role: AccountRole.WRITABLE },
+        { address: address(MAGIC_PROGRAM), role: AccountRole.READONLY },
+        { address: address(MAGIC_CONTEXT), role: AccountRole.WRITABLE },
+      ],
+      data: COMMIT_DISCRIMINATOR,
+    }
+    const message = pipe(
+      createTransactionMessage({ version: 0 }),
+      (m) => setTransactionMessageFeePayerSigner(signer, m),
+      (m) => setTransactionMessageLifetimeUsingBlockhash(blockhash, m),
+      (m) => appendTransactionMessageInstruction(instruction, m),
+    )
+    const signed = await signTransactionMessageWithSigners(message)
+    const signature = getSignatureFromTransaction(signed)
+    const wire = getBase64EncodedWireTransaction(signed)
+    const t = Date.now()
+    await rpc.sendTransaction(wire, { encoding: 'base64', skipPreflight: true }).send()
+    return { signature, ms: Date.now() - t }
+  } catch {
+    return null // best-effort — the captures already landed on the ER regardless
+  }
+}

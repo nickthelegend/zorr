@@ -89,18 +89,31 @@ Per-tile claims run on a **MagicBlock Ephemeral Rollup**: a delegated `territory
 
 - **Program:** [`BSDY7ZusGE7372ydW7K8BuE8ZoiYumTBrAR9uymPGL1F`](https://explorer.solana.com/address/BSDY7ZusGE7372ydW7K8BuE8ZoiYumTBrAR9uymPGL1F?cluster=devnet) — a custom Anchor program using `#[ephemeral]` / `#[delegate]` and the `ephemeral-rollups-sdk` (`initialize` / `delegate` / `capture_tile` / `commit` / `undelegate`).
 - **ER endpoint:** `https://devnet-as.magicblock.app` · **validator** `MAS1Dt9qreoRMQ14YQuhg8UTZMMzDdKhmkZMECCzk57`.
-- **Flow:** `initialize` → `delegate` PDA to the ER → `capture_tile` **on the ER** (gasless) → `commit` state back to devnet base layer.
-- **Proven:** the full delegate → gasless capture → commit path passes live on devnet via `onchain/tests/zorr-er.ts` (~154 ms capture), and standalone via `@solana/kit` (~51 ms). In the app, `src/features/chain/er.ts#captureTileOnER` builds the same instruction and posts it to the ER, with a devnet memo tx as fallback.
+- **Flow:** `initialize` → `delegate` PDA to the ER (one-time) → `capture_tile` **on the ER** per run (gasless, ~50–150 ms) → `commit` state back to devnet base layer. The program also exposes `capture_and_commit` (capture + commit in one ER tx).
+- **What runs where (honest):** the **app** signs live `capture_tile` txs to the ER endpoint every run **and then commits the ER state back to base** at run-end (`src/features/chain/er.ts#captureTileOnER` + `#commitTerritoryFromER`, ~154 ms capture, with a devnet memo tx as a fallback if the ER is unreachable). The one-time **`delegate`** is done out-of-band and proven end-to-end on devnet in `onchain/tests/zorr-er.ts` (and standalone via `@solana/kit`, ~51 ms) — the app does not re-delegate per run.
+- **PDA scope (honest):** the `territory` PDA is currently a **single shared account** (`seeds = [b"territory"]`) written by the game's gas-sponsor signer — a shared on-chain counter, not yet a per-player PDA. Per-user territory (`seeds = [b"territory", user]`) is a one-seed change + redeploy on the roadmap.
 
 ### MagicBlock VRF — implemented ✅
 
-Verifiable randomness from the MagicBlock VRF oracle, on the **same program**. Two `#[vrf]` instructions (`ephemeral-rollups-sdk 0.15.5`, `vrf` feature) request randomness and receive it via an oracle callback:
+Verifiable randomness from the MagicBlock VRF oracle, on the **same program**. Two `#[vrf]` instructions (`ephemeral-rollups-sdk 0.15.4`, `vrf` feature) request randomness and receive it via an oracle callback:
 
 - **Flow:** `request_seed(scope)` CPIs the base-layer VRF oracle queue (`Cuj97ggr…`) → the oracle calls back `callback_seed(randomness)` (guarded so only the VRF program identity can fulfill) → 32 verifiable bytes land in a scoped `VrfSeed` PDA.
 - **Proven live:** `onchain/tests/zorr-vrf.ts` (`npm run test:vrf`) — request → oracle callback fulfilled in **~700 ms** → PDA holds real non-zero randomness.
 - **Two uses in the app** (`src/features/chain/vrf.ts`, built in `@solana/kit`):
   - **Provably-fair summon** — a Guardian's element/rarity/stats derive from a VRF seed, so nobody can grind for Legendaries.
   - **Trustless battle seed** — a peer duel's RNG is seeded by VRF (host-authoritative + on-chain verifiable), replacing the players' nonces. Falls back to the deterministic seed if VRF is unreachable, so play never blocks.
+
+### What MagicBlock powers in Zorr — and the honest boundary
+
+**Genuinely on MagicBlock (verifiable on devnet):**
+- **Gasless tile capture on the Ephemeral Rollup** — the app signs real `capture_tile` txs to `devnet-as.magicblock.app` every run (~154 ms, no per-action gas popups).
+- **VRF-fair Guardian drops + battle seeds** — real `request_seed` → oracle `callback_seed` on the deployed program; 32 verifiable bytes seed each NFT summon and each PvP duel.
+- **Private Payments** — shield / private-send / withdraw of the real $ZORR SPL token through MagicBlock's private-payments API (`api.magicblock.app` / `rpc.magicblock.app`).
+
+**Honest boundaries — do _not_ claim these as MagicBlock:**
+- The **$ZORR economy** (swap/AMM, wager pots, faucet, balances) settles instantly in a **custom off-chain relay ledger** (`nft/src/claim-relay.mjs`), redeemable to the real on-chain SPL token via `withdraw`. It's fast and gasless, but it's _our relay_, not an ER.
+- **PvP turn-sync** is a plain WebSocket forwarder (`server/relay.mjs`).
+- **Fallbacks are real:** if the ER is unreachable a capture falls back to a devnet memo tx; if the VRF oracle doesn't answer in time, the battle seed falls back to a deterministic host seed and the NFT draw falls back to a local pick (logged, `vrf:false`). Randomness is genuinely VRF **when the oracle answers**.
 
 ### Real Zorr Beast NFTs — Genesis drop + VRF claim ✅
 
