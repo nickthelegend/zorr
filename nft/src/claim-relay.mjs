@@ -436,8 +436,9 @@ async function zorrOnchainFaucet(owner, amount) {
   // (it holds no SOL of its own, unlike the Privy game wallet).
   try {
     const sol = await conn.getBalance(ownerPk)
-    if (sol < 5_000_000) {
-      const gasTx = new web3.Transaction().add(web3.SystemProgram.transfer({ fromPubkey: kp.publicKey, toPubkey: ownerPk, lamports: 10_000_000 }))
+    if (sol < 30_000_000) {
+      // Enough to cover ER delegation (vault rent + fees) as well as plain transfers.
+      const gasTx = new web3.Transaction().add(web3.SystemProgram.transfer({ fromPubkey: kp.publicKey, toPubkey: ownerPk, lamports: 50_000_000 }))
       await web3.sendAndConfirmTransaction(conn, gasTx, [kp], { commitment: 'confirmed' })
     }
   } catch {}

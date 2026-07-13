@@ -165,7 +165,7 @@ export default function PaymentsScreen() {
               <View style={styles.heroTop}>
                 <View style={styles.heroBadge}>
                   <EyeOff color={colors.primary} size={13} />
-                  <Text style={styles.heroBadgeText}>SHIELDED · PRIVATE VAULT</Text>
+                  <Text style={styles.heroBadgeText}>SHIELDED · MAGICBLOCK TEE</Text>
                 </View>
                 <TouchableOpacity onPress={refresh} hitSlop={10}>
                   <RefreshCw color={colors.textMuted} size={15} style={loading ? { opacity: 0.4 } : undefined} />
@@ -209,10 +209,10 @@ export default function PaymentsScreen() {
 
           <Text style={styles.flowHint}>
             {mode === 'shield'
-              ? 'Move on-chain $ZORR into your private vault — a real transfer, redeemable anytime.'
+              ? 'Delegate your $ZORR to a MagicBlock Ephemeral Rollup — fast, private, on the TEE.'
               : mode === 'withdraw'
-                ? 'Redeem shielded $ZORR back to your public on-chain balance (real transfer).'
-                : 'Send shielded $ZORR — privately (instant, off-chain) or as a real on-chain payout.'}
+                ? 'Undelegate your $ZORR from the rollup back to the Solana base layer.'
+                : 'Transfer $ZORR privately inside the rollup — logs & amounts are TEE-gated.'}
           </Text>
 
           {/* Amount */}
@@ -295,7 +295,7 @@ export default function PaymentsScreen() {
           ) : null}
 
           <Text style={styles.foot}>
-            Real on-chain $ZORR vault · Solana devnet · redeemable anytime.{owner ? `\n${owner.slice(0, 6)}…${owner.slice(-6)}` : ''}
+            MagicBlock Ephemeral Rollup · TEE-private · Solana devnet.{owner ? `\n${owner.slice(0, 6)}…${owner.slice(-6)}` : ''}
           </Text>
         </ScrollView>
       </SafeAreaView>
