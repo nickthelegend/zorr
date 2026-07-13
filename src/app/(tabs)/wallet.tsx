@@ -20,12 +20,13 @@ import {
   Wallet as WalletIcon,
 } from 'lucide-react-native'
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import QRCodeStyled from 'react-native-qrcode-styled'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { BeastCard } from '../../components/beast-card'
+import { SolanaMark } from '../../components/solana-mark'
 import { GlowCard, Press } from '../../components/ui'
 import { fetchOwned, fetchZorrBalance, fetchZorrHistory, fetchZorrOnchain, getOwnerAddress, type OwnedBeast, type ZorrEvent } from '../../features/nft/nft'
 import { DEVNET_RPC, useDevnetBalance } from '../../features/wallet/use-devnet-balance'
@@ -195,9 +196,9 @@ export default function WalletScreen() {
               <Coins color={colors.gold} size={16} />
               <Text style={styles.cardTitle}>ASSETS</Text>
             </View>
-            <AssetRow symbol="◎" color={colors.primary} name="Solana" sub="SOL · DEVNET" amount={(balance ?? 0).toFixed(4)} />
-            <AssetRow symbol="Z" color={colors.gold} name="$ZORR" sub="SPENDABLE · ROLLUP LEDGER" amount={zorr === null ? '—' : zorr.toLocaleString('en-US')} divider />
-            <AssetRow symbol="Z" color={colors.territory} name="$ZORR" sub="ON-CHAIN · IN YOUR WALLET" amount={zorrChain === null ? '—' : zorrChain.toLocaleString('en-US')} divider />
+            <AssetRow logo={<SolanaMark size={22} />} color={colors.primary} name="Solana" sub="SOL · DEVNET" amount={(balance ?? 0).toFixed(4)} />
+            <AssetRow logo={<Image source={require('../../../assets/images/icon.png')} style={styles.assetLogo} />} color={colors.gold} name="$ZORR" sub="SPENDABLE · ROLLUP LEDGER" amount={zorr === null ? '—' : zorr.toLocaleString('en-US')} divider />
+            <AssetRow logo={<Image source={require('../../../assets/images/icon.png')} style={styles.assetLogo} />} color={colors.territory} name="$ZORR" sub="ON-CHAIN · IN YOUR WALLET" amount={zorrChain === null ? '—' : zorrChain.toLocaleString('en-US')} divider />
           </GlowCard>
         </Animated.View>
 
@@ -278,11 +279,11 @@ function ActionCircle({ icon, label, onPress, disabled }: { icon: React.ReactNod
   )
 }
 
-function AssetRow({ symbol, color, name, sub, amount, divider }: { symbol: string; color: string; name: string; sub: string; amount: string; divider?: boolean }) {
+function AssetRow({ logo, symbol, color, name, sub, amount, divider }: { logo?: React.ReactNode; symbol?: string; color: string; name: string; sub: string; amount: string; divider?: boolean }) {
   return (
     <View style={[styles.assetRow, divider && styles.assetRowDivider]}>
       <View style={[styles.assetBadge, { borderColor: color }]}>
-        <Text style={[styles.assetSymbol, { color }]}>{symbol}</Text>
+        {logo ?? <Text style={[styles.assetSymbol, { color }]}>{symbol}</Text>}
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.assetName}>{name}</Text>
@@ -296,6 +297,7 @@ function AssetRow({ symbol, color, name, sub, amount, divider }: { symbol: strin
 const TX_META: Record<string, { label: string; glyph: string; sign: number; color: string }> = {
   swap: { label: 'Swapped SOL → $ZORR', glyph: '⇄', sign: 1, color: colors.gold },
   withdraw: { label: 'Withdrew to wallet', glyph: '↑', sign: -1, color: colors.primary },
+  deposit: { label: 'Moved to spendable', glyph: '↓', sign: 1, color: colors.gold },
   faucet: { label: 'Starter grant', glyph: '↓', sign: 1, color: colors.territory },
   'wager-stake': { label: 'Wager staked', glyph: '⚔', sign: -1, color: colors.enemy },
   'wager-win': { label: 'Wager won', glyph: '★', sign: 1, color: colors.territory },
@@ -404,8 +406,9 @@ const styles = StyleSheet.create({
   assetsCard: { padding: 18 },
   assetRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   assetRowDivider: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.hairline },
-  assetBadge: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  assetBadge: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   assetSymbol: { fontSize: 17, fontWeight: '800' },
+  assetLogo: { width: 24, height: 24, borderRadius: 12 },
   assetName: { color: colors.text, fontSize: 15, fontWeight: '600' },
   assetSym: { color: colors.textFaint, fontSize: 11, marginTop: 2 },
   assetAmount: { color: colors.text, fontSize: 16, fontFamily: fonts.mono },

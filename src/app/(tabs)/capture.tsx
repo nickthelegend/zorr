@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { Activity, Check, ExternalLink, LocateFixed, Play, Square, X } from 'lucide-react-native'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import MapView, { Polygon, Polyline, PROVIDER_GOOGLE } from 'react-native-maps'
+import MapView, { Circle, Polygon, Polyline, PROVIDER_GOOGLE } from 'react-native-maps'
 import Animated, {
   Easing,
   FadeIn,
@@ -133,14 +133,16 @@ export default function RunScreen() {
   }, [fix])
 
   useEffect(() => {
-    if (fix && !centered.current) {
+    if (!fix) return
+    // Snap hard to the runner on the first fix (tight, street-level zoom), then
+    // keep them centered while a run is live so the board tracks their movement.
+    if (!centered.current) {
       centered.current = true
-      mapRef.current?.animateToRegion(
-        { latitude: fix.lat, longitude: fix.lng, latitudeDelta: 0.012, longitudeDelta: 0.012 },
-        600,
-      )
+      mapRef.current?.animateToRegion({ latitude: fix.lat, longitude: fix.lng, latitudeDelta: 0.006, longitudeDelta: 0.006 }, 650)
+    } else if (run.running) {
+      mapRef.current?.animateCamera({ center: { latitude: fix.lat, longitude: fix.lng } }, { duration: 500 })
     }
-  }, [fix])
+  }, [fix, run.running])
 
   const activity = useMemo(() => activityFor(fix?.speed ?? 0), [fix?.speed])
   const nominalLat = fix?.lat ?? 17.4239
@@ -242,6 +244,16 @@ export default function RunScreen() {
         toolbarEnabled={false}
         initialRegion={{ latitude: 17.4239, longitude: 78.4738, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
       >
+        {/* Your live capture zone — a neon ring in your clan colour, centred on you */}
+        {fix ? (
+          <Circle
+            center={{ latitude: fix.lat, longitude: fix.lng }}
+            radius={60}
+            strokeColor={game.color}
+            strokeWidth={2.5}
+            fillColor={game.color + '1F'}
+          />
+        ) : null}
         {/* Rival empires — organic regions with thick glowing borders (tap to scout) */}
         {empires.map((e) => (
           <Polygon

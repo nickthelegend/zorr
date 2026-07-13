@@ -53,12 +53,13 @@ const playersPath = out('players.json')
 const players = fs.existsSync(playersPath) ? JSON.parse(fs.readFileSync(playersPath, 'utf8')) : {}
 const savePlayers = () => fs.writeFileSync(playersPath, JSON.stringify(players, null, 2))
 
-// ---- $ZORR economy (real SPL token + fast ledger) ---------------------------
+// ---- $ZORR economy (real SPL token + OFF-CHAIN relay ledger) ----------------
 // $ZORR is a real devnet SPL token (out/token.json). Spendable balances live in
-// a fast ledger here — MagicBlock-ER style: swaps, wagers and payouts settle
-// instantly and gaslessly, and /zorr/withdraw redeems a balance to the player's
-// real on-chain token account anytime. The ledger is backed 1:1 by the treasury
-// supply. No mock balances — every number is earned via swap or wagered play.
+// a fast off-chain ledger in THIS custom relay (out/zorr.json) — NOT MagicBlock,
+// NOT on-chain: swaps, wagers and payouts settle instantly against the JSON
+// ledger, and /zorr/withdraw redeems a balance to the player's real on-chain
+// token account anytime (the only on-chain step). The ledger is backed 1:1 by
+// the treasury supply. No mock balances — every number is earned via swap or play.
 const token = fs.existsSync(out('token.json')) ? JSON.parse(fs.readFileSync(out('token.json'), 'utf8')) : null
 const FAUCET_GRANT = 500 // one-time starter ZORR so a new player can wager immediately
 // SOL↔$ZORR is a constant-product AMM (x·y=k): reserves seed the spot at ~1000
@@ -424,6 +425,44 @@ async function zorrOnchain(owner) {
   }
 }
 
+// Verify a Privy-signed $ZORR transfer INTO the treasury (on-chain → ledger), by
+// checking the treasury token account grew by ≥ amount. Polls for confirmation.
+async function verifyZorrDeposit(sig, amount) {
+  const conn = new web3.Connection(RPC, 'confirmed')
+  const treasury = kp.publicKey.toBase58()
+  for (let i = 0; i < 6; i++) {
+    const tx = await conn.getParsedTransaction(sig, { commitment: 'confirmed', maxSupportedTransactionVersion: 0 }).catch(() => null)
+    if (tx) {
+      if (tx.meta?.err) return { ok: false, error: 'deposit tx failed on-chain' }
+      const find = (arr) => (arr || []).find((b) => b.owner === treasury && b.mint === token.mint)
+      const before = Number(find(tx.meta.preTokenBalances)?.uiTokenAmount.uiAmount || 0)
+      const after = Number(find(tx.meta.postTokenBalances)?.uiTokenAmount.uiAmount || 0)
+      const delta = after - before
+      if (delta + 1e-6 < amount) return { ok: false, error: `deposit short: ${delta} < ${amount}` }
+      return { ok: true, delta }
+    }
+    await sleep(1500)
+  }
+  return { ok: false, error: 'deposit not confirmed yet — try again' }
+}
+
+// Move on-chain $ZORR back into the fast spendable ledger — the reverse of
+// /zorr/withdraw. Requires a real signed transfer to the treasury (anti-replay).
+async function zorrDeposit(owner, amount, sig) {
+  if (!token) return { status: 503, body: { error: '$ZORR token not launched' } }
+  if (!isPubkey(owner)) return { status: 400, body: { error: 'invalid owner' } }
+  const amt = Math.floor(Number(amount) || 0)
+  if (amt <= 0) return { status: 400, body: { error: 'amount must be > 0' } }
+  if (!sig) return { status: 400, body: { error: 'signed deposit tx required' } }
+  if (zorr.swapSigs[sig]) return { status: 409, body: { error: 'deposit already credited' } }
+  const v = await verifyZorrDeposit(sig, amt)
+  if (!v.ok) return { status: 402, body: { error: v.error } }
+  zorr.swapSigs[sig] = { owner, deposit: amt, at: Date.now() }
+  zSet(owner, zBal(owner) + amt)
+  zLog(owner, { t: 'deposit', amount: amt, sig })
+  return { status: 200, body: { balance: zBal(owner), deposited: amt, sig } }
+}
+
 function send(res, status, body) {
   res.writeHead(status, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type', 'access-control-allow-methods': 'GET,POST,OPTIONS' })
   res.end(JSON.stringify(body))
@@ -545,6 +584,9 @@ http
     }
     if (req.method === 'POST' && url.pathname === '/zorr/withdraw') {
       return withBody(req, res, async (b) => { const r = await zorrWithdraw(b.owner); send(res, r.status, r.body) })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/deposit') {
+      return withBody(req, res, async (b) => { const r = await zorrDeposit(b.owner, b.amount, b.sig); send(res, r.status, r.body) })
     }
 
     send(res, 404, { error: 'not found' })

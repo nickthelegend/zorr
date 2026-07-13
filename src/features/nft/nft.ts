@@ -147,7 +147,7 @@ export async function fetchLeaderboard(): Promise<PlayerStats[]> {
 export type ZorrConfig = { name: string; symbol: string; mint: string; decimals: number; supply: number; rate: number; faucet: number; cluster: string; feeBps?: number; reserveSol?: number; reserveZorr?: number; treasury?: string }
 
 /** One $ZORR ledger event (swap, withdraw, faucet, wager, claim), newest first. */
-export type ZorrEvent = { t: 'swap' | 'withdraw' | 'faucet' | 'wager-stake' | 'wager-win' | 'wager-refund' | 'claim'; amount: number; sol?: number; sig?: string; price?: number; beast?: string; asset?: string; room?: string; ts: number }
+export type ZorrEvent = { t: 'swap' | 'withdraw' | 'deposit' | 'faucet' | 'wager-stake' | 'wager-win' | 'wager-refund' | 'claim'; amount: number; sol?: number; sig?: string; price?: number; beast?: string; asset?: string; room?: string; ts: number }
 
 async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const r = await fetch(`${CLAIM_RELAY_URL}${path}`, {
@@ -244,4 +244,10 @@ export async function soloSettle(amount: number, won: boolean): Promise<{ balanc
 export async function withdrawZorr(): Promise<{ signature: string; amount: number; explorer: string }> {
   const owner = await getOwnerAddress()
   return postJson('/zorr/withdraw', { owner })
+}
+
+/** Move on-chain $ZORR back into the spendable ledger — pass a signed transfer sig. */
+export async function depositZorr(amount: number, sig: string): Promise<{ balance: number; deposited: number }> {
+  const owner = await getOwnerAddress()
+  return postJson('/zorr/deposit', { owner, amount, sig })
 }

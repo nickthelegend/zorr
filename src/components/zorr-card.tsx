@@ -1,9 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient'
-import { ArrowRight, Coins, Gift, X } from 'lucide-react-native'
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, Coins, Gift, X } from 'lucide-react-native'
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 
-import { claimZorrFaucet, fetchZorrBalance, fetchZorrConfig, fetchZorrQuote, swapZorr, withdrawZorr, type ZorrConfig } from '../features/nft/nft'
+import { claimZorrFaucet, depositZorr, fetchZorrBalance, fetchZorrConfig, fetchZorrOnchain, fetchZorrQuote, swapZorr, withdrawZorr, type ZorrConfig } from '../features/nft/nft'
 import { useSolPayment } from '../features/wallet/use-sol-payment'
 import { colors, fonts, radius } from '../theme'
 import { GlowCard, Press } from './ui'
@@ -89,8 +89,17 @@ function SwapSheet({
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [quote, setQuote] = useState<{ got: number; rate: number; impact: number } | null>(null)
-  const { paySol, canPay } = useSolPayment()
+  const [onchain, setOnchain] = useState<number | null>(null)
+  const { paySol, payZorr, canPay } = useSolPayment()
   const sol = Math.max(0, Number(solStr) || 0)
+
+  // The on-chain $ZORR sitting in the wallet — what "Deposit" can move back in.
+  useEffect(() => {
+    if (!visible) return
+    fetchZorrOnchain()
+      .then(setOnchain)
+      .catch(() => setOnchain(null))
+  }, [visible])
 
   // Live AMM quote — refreshes as the SOL amount changes so the buyer sees the
   // real price + impact for this trade size, not a fixed rate.
@@ -190,22 +199,43 @@ function SwapSheet({
             </LinearGradient>
           </TouchableOpacity>
 
+          {/* Move $ZORR between the spendable ledger and your on-chain wallet */}
+          <View style={styles.moveLabelRow}>
+            <Text style={styles.moveLabel}>MOVE $ZORR</Text>
+            <Text style={styles.moveBalances}>
+              {balance == null ? '—' : fmt(balance)} spendable · {onchain == null ? '—' : fmt(onchain)} on-chain
+            </Text>
+          </View>
           <View style={styles.secondaryRow}>
             <TouchableOpacity disabled={busy} style={styles.secondary} onPress={() => run(async () => {
-              const r = await claimZorrFaucet()
-              return { msg: r.granted ? `Claimed ${r.granted} starter ZORR` : 'Starter grant already claimed' }
+              const amt = onchain ?? 0
+              if (amt <= 0) return { msg: 'No on-chain $ZORR to move in' }
+              if (!config.treasury) return { msg: 'Deposit unavailable right now' }
+              const sig = await payZorr(config.mint, config.treasury, amt, config.decimals)
+              if (!sig) return { msg: 'Approve the transfer to move your on-chain $ZORR' }
+              const r = await depositZorr(amt, sig)
+              setOnchain(0)
+              return { msg: `Moved ${fmt(r.deposited)} $ZORR into spendable ✓` }
             })}>
-              <Gift color={colors.territory} size={15} />
-              <Text style={styles.secondaryText}>Starter 500</Text>
+              <ArrowDownLeft color={colors.gold} size={15} />
+              <Text style={styles.secondaryText}>Deposit</Text>
             </TouchableOpacity>
             <TouchableOpacity disabled={busy} style={styles.secondary} onPress={() => run(async () => {
               const r = await withdrawZorr()
-              return { msg: `Withdrew ${fmt(r.amount)} $ZORR — now in your wallet on-chain ✓  Opening explorer…`, url: r.explorer }
+              setOnchain((o) => (o ?? 0) + r.amount)
+              return { msg: `Withdrew ${fmt(r.amount)} $ZORR to your wallet on-chain ✓  Opening explorer…`, url: r.explorer }
             })}>
-              <ArrowRight color={colors.primary} size={15} />
-              <Text style={styles.secondaryText}>Withdraw on-chain</Text>
+              <ArrowUpRight color={colors.primary} size={15} />
+              <Text style={styles.secondaryText}>Withdraw</Text>
             </TouchableOpacity>
           </View>
+          <TouchableOpacity disabled={busy} style={styles.starterBtn} onPress={() => run(async () => {
+            const r = await claimZorrFaucet()
+            return { msg: r.granted ? `Claimed ${r.granted} starter $ZORR` : 'Starter grant already claimed' }
+          })}>
+            <Gift color={colors.territory} size={14} />
+            <Text style={styles.starterText}>Claim starter 500</Text>
+          </TouchableOpacity>
 
           {msg ? <Text style={styles.msg}>{msg}</Text> : null}
           <Text style={styles.foot}>Devnet · $ZORR is a real SPL token on a constant-product AMM. Spendable balance settles instantly on the Zorr rollup; Withdraw sends it to your Solana wallet on-chain.</Text>
@@ -283,9 +313,14 @@ const styles = StyleSheet.create({
   receiveZorr: { color: colors.gold, fontSize: 20, fontFamily: fonts.display },
   cta: { paddingVertical: 16, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   ctaText: { color: '#1a1206', fontSize: 15, fontWeight: '800' },
+  moveLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
+  moveLabel: { color: colors.textFaint, fontSize: 10.5, letterSpacing: 1.4, fontWeight: '700' },
+  moveBalances: { color: colors.textFaint, fontSize: 11, fontFamily: fonts.mono },
   secondaryRow: { flexDirection: 'row', gap: 12 },
   secondary: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   secondaryText: { color: colors.textMuted, fontSize: 12.5, fontWeight: '600' },
+  starterBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8 },
+  starterText: { color: colors.textDim, fontSize: 12, fontWeight: '600' },
   msg: { color: colors.territory, fontSize: 13, textAlign: 'center' },
   foot: { color: colors.textFaint, fontSize: 11, textAlign: 'center', lineHeight: 16 },
 })
