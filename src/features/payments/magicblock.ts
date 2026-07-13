@@ -1,25 +1,26 @@
-import { Keypair } from '@solana/web3.js'
+import { Keypair, PublicKey } from '@solana/web3.js'
 import * as SecureStore from 'expo-secure-store'
 
-import { explorerTx as teeExplorerTx, teeBalances, teeSend, teeShield, teeWithdraw, ZORR_DECIMALS as DEC } from './tee'
+import { fetchZorrBalance, getOwnerAddress } from '../nft/nft'
+import { explorerTx as teeExplorerTx, teeBalances, teeSend, teeShield, teeTransferToTreasury, teeWithdraw, ZORR_DECIMALS as DEC } from './tee'
 
-// Private Payments = REAL MagicBlock Ephemeral Rollup + TEE. Shield delegates the
-// wallet's $ZORR to the TEE rollup, Send transfers privately inside it, Withdraw
-// undelegates back to the base layer. All signing happens on-device with a
-// dedicated raw keypair (the Privy embedded wallet can't expose a raw key, and the
-// ER/TEE ops need one). Funding comes from the relay faucet (real on-chain $ZORR +
-// gas SOL). See tee.ts + the magicblock-private-payments memory.
+// Private Payments = REAL MagicBlock TEE Ephemeral Rollup, drawing from your
+// ACTUAL spendable $ZORR (the same balance shown on the wallet page) — not a
+// separate wallet. Shield: the relay moves $ZORR from your spendable ledger onto
+// this device's dedicated ER-signing wallet on-chain, which then delegates it to
+// the TEE. Withdraw: undelegate → return to the treasury → your spendable ledger
+// is credited. The dedicated keypair only exists because the Privy wallet can't
+// expose a raw key to sign ER/TEE txs. See tee.ts + the magicblock memory.
 
 export const ZORR_MINT = 'G8iBAC71bd3ikwGQrKUcFUrZ2ZpSxXbXg42NncASUxAL'
 export const ZORR_DECIMALS = DEC
 export const explorerTx = teeExplorerTx
 
-const LEGACY_OWNER_KEY = 'zorr.owner.secret' // pre-Privy shared device seed (adopted if present)
-const PAY_SECRET_KEY = 'zorr.pay.secret' // dedicated Private-Payments Ed25519 seed
+const CLAIM_RELAY_URL = process.env.EXPO_PUBLIC_CLAIM_RELAY_URL || 'http://10.0.2.2:8790'
+const LEGACY_OWNER_KEY = 'zorr.owner.secret'
+const PAY_SECRET_KEY = 'zorr.pay.secret' // dedicated ER-signing keypair (never wiped on logout)
 
-// ---- Private-Payments keypair ----
-// Auto-created on first use and NOT wiped on sign-out, so the shielded balance
-// survives logout. Fund its base ATA via fundPaymentsWallet() before shielding.
+// ---- ER-signing keypair (auto-created, persistent) ----
 let kpCache: Keypair | null = null
 async function keypair(): Promise<Keypair> {
   if (kpCache) return kpCache
@@ -37,48 +38,77 @@ export async function paymentsOwner(): Promise<string> {
   return (await keypair()).publicKey.toBase58()
 }
 
-// ---- balances (base = on-chain public, shielded = delegated on the TEE ER) ----
+let treasuryCache: string | null = null
+async function treasuryOwner(): Promise<string> {
+  if (treasuryCache) return treasuryCache
+  const cfg = await (await fetch(`${CLAIM_RELAY_URL}/zorr/config`)).json()
+  if (!cfg.treasury) throw new Error('relay has no treasury')
+  treasuryCache = cfg.treasury as string
+  return treasuryCache
+}
+
+// ---- balances: base = your spendable $ZORR, shielded = what's on the TEE ----
 export type SplBalance = { balance: string }
 
-// Cache the last snapshot briefly so fetchBaseBalance + fetchPrivateBalance (called
-// together on refresh) don't each hit the ER separately.
-let balCache: { at: number; base: number; shielded: number } | null = null
-async function balances(): Promise<{ base: number; shielded: number }> {
-  if (balCache && Date.now() - balCache.at < 2500) return balCache
-  const b = await teeBalances(await keypair())
-  balCache = { at: Date.now(), ...b }
-  return b
-}
-const bump = () => {
-  balCache = null
-}
-
+/** Public/base = the player's real spendable $ZORR (relay ledger) — the shield source. */
 export async function fetchBaseBalance(): Promise<SplBalance> {
-  const { base } = await balances()
-  return { balance: String(Math.round(base * 10 ** DEC)) }
+  const spendable = await fetchZorrBalance()
+  return { balance: String(Math.round(spendable * 10 ** DEC)) }
 }
+/** Shielded = $ZORR currently delegated to the MagicBlock TEE Ephemeral Rollup. */
 export async function fetchPrivateBalance(): Promise<SplBalance> {
-  const { shielded } = await balances()
+  const { shielded } = await teeBalances(await keypair())
   return { balance: String(Math.round(shielded * 10 ** DEC)) }
 }
 
-// ---- shield / send / withdraw on the real TEE Ephemeral Rollup ----
-/** Shield: delegate `amount` (base units) of $ZORR to the MagicBlock TEE rollup. */
+// ---- shield / send / withdraw ----
+/**
+ * Shield: draw `amount` (base units) from your spendable $ZORR and delegate it to
+ * the TEE. (1) relay moves that $ZORR on-chain to the ER-signing wallet (+ gas),
+ * (2) wait for it to land, (3) delegate it to the MagicBlock TEE rollup.
+ */
 export async function deposit(amount: number): Promise<string> {
   const whole = Math.max(1, Math.floor(amount / 10 ** DEC))
-  const sig = await teeShield(await keypair(), whole)
-  bump()
-  return sig
+  const gameOwner = await getOwnerAddress()
+  const payWallet = await paymentsOwner()
+  const kp = await keypair()
+
+  const r = await fetch(`${CLAIM_RELAY_URL}/zorr/shield/fund`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gameOwner, payWallet, amount: whole }),
+  })
+  const j = await r.json()
+  if (!r.ok || j.error) throw new Error(j.error || 'could not move $ZORR to shield')
+
+  // Wait for the on-chain funding to land before delegating.
+  for (let i = 0; i < 12; i++) {
+    const { base } = await teeBalances(kp)
+    if (base >= whole) break
+    await new Promise((s) => setTimeout(s, 2000))
+  }
+  return teeShield(kp, whole)
 }
 
-/** Withdraw: undelegate the $ZORR from the TEE rollup back to the base layer. */
+/**
+ * Withdraw: undelegate from the TEE, reclaim to the ER-signing wallet, return the
+ * $ZORR to the treasury, and credit it back to your spendable balance.
+ */
 export async function withdraw(_amount: number): Promise<string> {
-  const sig = await teeWithdraw(await keypair())
-  bump()
-  return sig
+  const kp = await keypair()
+  const gameOwner = await getOwnerAddress()
+  const { signature: wSig, whole } = await teeWithdraw(kp)
+  if (whole <= 0) return wSig
+  const tSig = await teeTransferToTreasury(kp, new PublicKey(await treasuryOwner()), whole)
+  await fetch(`${CLAIM_RELAY_URL}/zorr/shield/redeem`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gameOwner, sig: tSig, amount: whole }),
+  }).catch(() => {})
+  return tSig
 }
 
-/** Send shielded $ZORR privately (or publicly) to another wallet inside the ER. */
+/** Send $ZORR privately (or publicly) to another wallet inside the TEE rollup. */
 export async function transfer(opts: {
   to: string
   amount: number // base units
@@ -87,26 +117,7 @@ export async function transfer(opts: {
   toBalance?: 'base' | 'ephemeral'
 }): Promise<string> {
   const whole = Math.max(1, Math.floor(opts.amount / 10 ** DEC))
-  const sig = await teeSend(await keypair(), opts.to, whole, opts.visibility === 'private')
-  bump()
-  return sig
-}
-
-// ---- fund the Private-Payments wallet with real on-chain $ZORR (+ gas SOL) ----
-const CLAIM_RELAY_URL = process.env.EXPO_PUBLIC_CLAIM_RELAY_URL || 'http://10.0.2.2:8790'
-export async function fundPaymentsWallet(amount = 50): Promise<{ funded: boolean; signature?: string; amount?: number; balance?: number; note?: string; error?: string }> {
-  const owner = await paymentsOwner()
-  try {
-    const r = await fetch(`${CLAIM_RELAY_URL}/zorr/onchain-faucet`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ owner, amount }),
-    })
-    bump()
-    return await r.json()
-  } catch {
-    return { funded: false, error: 'relay unreachable' }
-  }
+  return teeSend(await keypair(), opts.to, whole, opts.visibility === 'private')
 }
 
 // ---- unit helpers ----

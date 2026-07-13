@@ -25,7 +25,6 @@ import {
   fetchBaseBalance,
   fetchPrivateBalance,
   fromBaseUnits,
-  fundPaymentsWallet,
   paymentsOwner,
   toBaseUnits,
   transfer,
@@ -48,7 +47,6 @@ export default function PaymentsScreen() {
   const [amount, setAmount] = useState('')
   const [to, setTo] = useState('')
   const [busy, setBusy] = useState(false)
-  const [funding, setFunding] = useState(false)
   const [result, setResult] = useState<Result>(null)
 
   const refresh = useCallback(async () => {
@@ -111,27 +109,6 @@ export default function PaymentsScreen() {
     }
   }
 
-  const fund = async () => {
-    setFunding(true)
-    setResult(null)
-    try {
-      const r = await fundPaymentsWallet(50)
-      if (r.funded) {
-        setResult({ ok: true, text: `Funded ${r.amount} $ZORR on-chain`, sig: r.signature })
-        playSfx('coin')
-        pushNote({ kind: 'swap', title: 'Test $ZORR funded', body: `${r.amount} $ZORR ready to shield` })
-      } else {
-        setResult({ ok: !r.error, text: r.note || r.error || 'Wallet already funded' })
-      }
-      setTimeout(refresh, 2500)
-    } finally {
-      setFunding(false)
-    }
-  }
-
-  // Offer real on-chain funding once balances have loaded and the base wallet is empty.
-  const needsFunds = !loading && (base == null || base < 1)
-
   const setPct = (pct: number) => {
     if (sourceBal == null) return
     const v = Math.max(0, sourceBal * pct)
@@ -177,28 +154,11 @@ export default function PaymentsScreen() {
               </Text>
               <View style={styles.heroBase}>
                 <Eye color={colors.textDim} size={13} />
-                <Text style={styles.heroBaseText}>Public · base</Text>
+                <Text style={styles.heroBaseText}>Spendable $ZORR</Text>
                 <Text style={styles.heroBaseVal}>{loading && base == null ? '…' : base == null ? '—' : fmt(base)} $ZORR</Text>
               </View>
             </LinearGradient>
           </Animated.View>
-
-          {/* Fund the shielded wallet with real on-chain $ZORR when it's empty */}
-          {needsFunds ? (
-            <Animated.View entering={FadeIn}>
-              <TouchableOpacity activeOpacity={0.9} onPress={fund} disabled={funding} style={styles.fundCard}>
-                {funding ? (
-                  <ActivityIndicator color={colors.primary} />
-                ) : (
-                  <ArrowDownToLine color={colors.primary} size={17} />
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fundTitle}>{funding ? 'Funding wallet…' : 'Get test $ZORR'}</Text>
-                  <Text style={styles.fundSub}>Mint 50 real on-chain $ZORR to this wallet to shield.</Text>
-                </View>
-              </TouchableOpacity>
-            </Animated.View>
-          ) : null}
 
           {/* Mode segmented control */}
           <View style={styles.segment}>

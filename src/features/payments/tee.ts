@@ -6,7 +6,8 @@ import {
   undelegateIx,
   withdrawSpl,
 } from '@magicblock-labs/ephemeral-rollups-sdk'
-import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js'
+import { Connection, Keypair, PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
+import { Buffer } from 'buffer'
 import nacl from 'tweetnacl'
 
 // REAL MagicBlock Ephemeral Rollup + TEE integration for $ZORR private payments.
@@ -98,9 +99,10 @@ export async function teeSend(kp: Keypair, to: string, whole: number, priv: bool
 /**
  * Withdraw: undelegate the $ZORR from the ER, wait for the commit to land on the
  * base layer, then reclaim the tokens from the escrow vault back into the base
- * ATA (withdrawSpl). Returns the base-layer withdraw tx signature.
+ * ATA (withdrawSpl). Returns the base-layer withdraw tx signature + the whole
+ * amount reclaimed (so the caller can return it to the game ledger).
  */
-export async function teeWithdraw(kp: Keypair): Promise<string> {
+export async function teeWithdraw(kp: Keypair): Promise<{ signature: string; whole: number }> {
   const er = await teeConnection(kp)
   const ata = ataFor(kp.publicKey)
   // Capture the ER balance first — this is what we reclaim (undelegate zeroes it).
@@ -118,12 +120,33 @@ export async function teeWithdraw(kp: Keypair): Promise<string> {
   } catch {
     // best-effort; the withdraw below still needs the base account released
   }
+  const whole = Number(amount / BigInt(10 ** ZORR_DECIMALS))
   // 3. pull the tokens out of the escrow vault back to the base ATA.
   if (amount > 0n) {
     const ixs = await withdrawSpl(kp.publicKey, ZORR_MINT, amount, { idempotent: false })
-    return signSend(base(), kp, ixs)
+    const sig = await signSend(base(), kp, ixs)
+    return { signature: sig, whole }
   }
-  return erSig
+  return { signature: erSig, whole }
+}
+
+/** Transfer `whole` $ZORR from the PP wallet's base ATA to the treasury (real tx). */
+export async function teeTransferToTreasury(kp: Keypair, treasury: PublicKey, whole: number): Promise<string> {
+  const src = ataFor(kp.publicKey)
+  const dst = ataFor(treasury)
+  const data = Buffer.alloc(9)
+  data.writeUInt8(3, 0) // SPL Token: Transfer
+  data.writeBigUInt64LE(units(whole), 1)
+  const ix = new TransactionInstruction({
+    programId: TOKEN_PROGRAM_ID,
+    keys: [
+      { pubkey: src, isSigner: false, isWritable: true },
+      { pubkey: dst, isSigner: false, isWritable: true },
+      { pubkey: kp.publicKey, isSigner: true, isWritable: false },
+    ],
+    data,
+  })
+  return signSend(base(), kp, [ix])
 }
 
 /** Public (base) + shielded (delegated-on-ER) $ZORR balances, in whole tokens. */

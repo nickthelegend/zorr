@@ -499,6 +499,52 @@ async function zorrDeposit(owner, amount, sig) {
   return { status: 200, body: { balance: zBal(owner), deposited: amt, sig } }
 }
 
+// ---- Private Payments: bridge the player's spendable $ZORR ↔ the TEE rollup ----
+// Shielding draws from the player's REAL spendable balance (the same one on the
+// wallet page), not a separate faucet wallet: debit the game ledger and move that
+// $ZORR on-chain to the device's dedicated ER-signing wallet (+ gas), which then
+// delegates it to the MagicBlock TEE. Redeem reverses it: the ER-signing wallet
+// sends the $ZORR back to the treasury and the game ledger is credited.
+
+async function zorrShieldFund(gameOwner, payWallet, amount) {
+  if (!token) return { status: 503, body: { error: '$ZORR token not launched' } }
+  if (!isPubkey(gameOwner) || !isPubkey(payWallet)) return { status: 400, body: { error: 'invalid address' } }
+  const amt = Math.floor(Number(amount) || 0)
+  if (amt <= 0) return { status: 400, body: { error: 'amount must be > 0' } }
+  if (zBal(gameOwner) < amt) return { status: 400, body: { error: `insufficient $ZORR — you have ${zBal(gameOwner)}` } }
+  const conn = new web3.Connection(RPC, 'confirmed')
+  const mint = new web3.PublicKey(token.mint)
+  const payPk = new web3.PublicKey(payWallet)
+  const src = await getOrCreateAssociatedTokenAccount(conn, kp, mint, kp.publicKey)
+  const dst = await getOrCreateAssociatedTokenAccount(conn, kp, mint, payPk)
+  const sig = await splTransfer(conn, kp, src.address, dst.address, kp, BigInt(amt) * BigInt(10 ** token.decimals))
+  try {
+    const sol = await conn.getBalance(payPk)
+    if (sol < 30_000_000) {
+      const gasTx = new web3.Transaction().add(web3.SystemProgram.transfer({ fromPubkey: kp.publicKey, toPubkey: payPk, lamports: 50_000_000 }))
+      await web3.sendAndConfirmTransaction(conn, gasTx, [kp], { commitment: 'confirmed' })
+    }
+  } catch {}
+  zSet(gameOwner, zBal(gameOwner) - amt)
+  zLog(gameOwner, { t: 'shield-fund', amount: amt, sig })
+  return { status: 200, body: { signature: sig, amount: amt, spendable: zBal(gameOwner), account: dst.address.toBase58() } }
+}
+
+async function zorrShieldRedeem(gameOwner, sig, amount) {
+  if (!token) return { status: 503, body: { error: '$ZORR token not launched' } }
+  if (!isPubkey(gameOwner)) return { status: 400, body: { error: 'invalid owner' } }
+  const amt = Math.floor(Number(amount) || 0)
+  if (amt <= 0) return { status: 400, body: { error: 'amount must be > 0' } }
+  if (!sig) return { status: 400, body: { error: 'signed redeem tx required' } }
+  if (zorr.swapSigs[sig]) return { status: 409, body: { error: 'redeem already credited' } }
+  const v = await verifyZorrDeposit(sig, amt)
+  if (!v.ok) return { status: 402, body: { error: v.error } }
+  zorr.swapSigs[sig] = { gameOwner, redeem: amt, at: Date.now() }
+  zSet(gameOwner, zBal(gameOwner) + amt)
+  zLog(gameOwner, { t: 'unshield', amount: amt, sig })
+  return { status: 200, body: { spendable: zBal(gameOwner), amount: amt, sig } }
+}
+
 // ---- Private Payments: real on-chain $ZORR shielded vault ----
 // MagicBlock's hosted devnet TEE is in mock mode (its challenge is literally
 // "MOCK: …" and its deposit tx never settles), so shielding through it moves
@@ -707,6 +753,12 @@ http
     }
     if (req.method === 'GET' && url.pathname === '/zorr/shield/balance') {
       return shieldStateOf(url.searchParams.get('owner')).then((r) => send(res, r.status, r.body)).catch((e) => send(res, 500, { error: String(e).slice(0, 120) }))
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/shield/fund') {
+      return withBody(req, res, async (b) => { const r = await zorrShieldFund(b.gameOwner, b.payWallet, b.amount); send(res, r.status, r.body) })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/shield/redeem') {
+      return withBody(req, res, async (b) => { const r = await zorrShieldRedeem(b.gameOwner, b.sig, b.amount); send(res, r.status, r.body) })
     }
     if (req.method === 'POST' && url.pathname === '/zorr/shield/deposit') {
       return withBody(req, res, async (b) => { const r = await shieldDeposit(b.owner, b.sig, b.amount); send(res, r.status, r.body) })
