@@ -367,6 +367,32 @@ function zorrCancel(room, owner) {
   return { status: 200, body: { refunded: p.staked, balance: zBal(owner) } }
 }
 
+// Solo wager vs the house (AI duels): the player stakes `amount`, the house
+// matches it so both enter equal → pot = 2×. Single-player + client-trusted,
+// which is fine for AI play; PvP keeps the two-report anti-cheat above.
+function zorrSoloStake(owner, amount) {
+  if (!isPubkey(owner)) return { status: 400, body: { error: 'invalid owner' } }
+  const amt = Math.floor(Number(amount) || 0)
+  if (amt <= 0) return { status: 400, body: { error: 'amount must be > 0' } }
+  if (zBal(owner) < amt) return { status: 400, body: { error: 'insufficient ZORR balance' } }
+  zSet(owner, zBal(owner) - amt)
+  zLog(owner, { t: 'wager-stake', amount: amt })
+  return { status: 200, body: { balance: zBal(owner), pot: amt * 2, stake: amt } }
+}
+// Settle a solo wager: on a win the player takes the whole pot (2×); on a loss
+// the stake (already deducted at stake time) is gone.
+function zorrSoloSettle(owner, amount, won) {
+  if (!isPubkey(owner)) return { status: 400, body: { error: 'invalid owner' } }
+  const amt = Math.floor(Number(amount) || 0)
+  if (won && amt > 0) {
+    const pot = amt * 2
+    zSet(owner, zBal(owner) + pot)
+    zLog(owner, { t: 'wager-win', amount: pot })
+    return { status: 200, body: { balance: zBal(owner), won: pot } }
+  }
+  return { status: 200, body: { balance: zBal(owner), won: 0 } }
+}
+
 // Redeem the fast-ledger balance to the player's real on-chain $ZORR account.
 async function zorrWithdraw(owner) {
   if (!token) return { status: 503, body: { error: '$ZORR token not launched' } }
@@ -510,6 +536,12 @@ http
     }
     if (req.method === 'POST' && url.pathname === '/zorr/wager/cancel') {
       return withBody(req, res, (b) => { const r = zorrCancel(b.room, b.owner); send(res, r.status, r.body) })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/wager/solo/stake') {
+      return withBody(req, res, (b) => { const r = zorrSoloStake(b.owner, b.amount); send(res, r.status, r.body) })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/wager/solo/settle') {
+      return withBody(req, res, (b) => { const r = zorrSoloSettle(b.owner, b.amount, b.won); send(res, r.status, r.body) })
     }
     if (req.method === 'POST' && url.pathname === '/zorr/withdraw') {
       return withBody(req, res, async (b) => { const r = await zorrWithdraw(b.owner); send(res, r.status, r.body) })

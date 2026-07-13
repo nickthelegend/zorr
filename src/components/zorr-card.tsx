@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import { ArrowRight, Coins, Gift, X } from 'lucide-react-native'
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 
 import { claimZorrFaucet, fetchZorrBalance, fetchZorrConfig, fetchZorrQuote, swapZorr, withdrawZorr, type ZorrConfig } from '../features/nft/nft'
 import { useSolPayment } from '../features/wallet/use-sol-payment'
@@ -85,15 +85,20 @@ function SwapSheet({
   onClose: () => void
   onChanged: () => void
 }) {
-  const [sol, setSol] = useState(0.5)
+  const [solStr, setSolStr] = useState('0.5')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [quote, setQuote] = useState<{ got: number; rate: number; impact: number } | null>(null)
   const { paySol, canPay } = useSolPayment()
+  const sol = Math.max(0, Number(solStr) || 0)
 
   // Live AMM quote — refreshes as the SOL amount changes so the buyer sees the
   // real price + impact for this trade size, not a fixed rate.
   useEffect(() => {
+    if (sol <= 0) {
+      setQuote(null)
+      return
+    }
     let live = true
     fetchZorrQuote(sol)
       .then((q) => live && setQuote(q))
@@ -134,24 +139,42 @@ function SwapSheet({
 
           <Text style={styles.sheetSub}>Trade SOL for $ZORR — the token you stake and win in duels. Balance: {balance == null ? '—' : fmt(balance)} ZORR</Text>
 
-          <View style={styles.steps}>
-            {SOL_STEPS.map((v) => (
-              <TouchableOpacity key={v} onPress={() => setSol(v)} activeOpacity={0.85} style={[styles.step, sol === v && styles.stepOn]}>
-                <Text style={[styles.stepText, sol === v && styles.stepTextOn]}>{v} SOL</Text>
-              </TouchableOpacity>
-            ))}
+          {/* Amount — type any SOL amount, or tap a quick pick */}
+          <View style={styles.amountCard}>
+            <View style={styles.amountTop}>
+              <Text style={styles.fieldLabel}>YOU PAY</Text>
+              <View style={styles.quickChips}>
+                {SOL_STEPS.map((v) => (
+                  <TouchableOpacity key={v} onPress={() => setSolStr(String(v))} style={[styles.quickChip, solStr === String(v) && styles.quickChipOn]}>
+                    <Text style={[styles.quickChipText, solStr === String(v) && styles.quickChipTextOn]}>{v}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            <View style={styles.amountRow}>
+              <TextInput
+                style={styles.amountInput}
+                placeholder="0.0"
+                placeholderTextColor={colors.textFaint}
+                keyboardType="decimal-pad"
+                value={solStr}
+                onChangeText={setSolStr}
+                editable={!busy}
+                selectTextOnFocus
+              />
+              <Text style={styles.amountUnit}>SOL</Text>
+            </View>
           </View>
 
-          <View style={styles.preview}>
-            <Text style={styles.previewSol}>{sol} SOL</Text>
-            <ArrowRight color={colors.textDim} size={18} />
-            <Text style={styles.previewZorr}>{fmt(get)} ZORR</Text>
+          <View style={styles.receiveRow}>
+            <Text style={styles.receiveLabel}>You receive</Text>
+            <Text style={styles.receiveZorr}>{fmt(get)} $ZORR</Text>
           </View>
           <Text style={styles.rateLine}>
-            1 SOL ≈ {fmt(Math.round(get / sol))} ZORR · impact {impactPct.toFixed(2)}% · constant-product AMM
+            1 SOL ≈ {fmt(Math.round(get / (sol || 1)))} ZORR · impact {impactPct.toFixed(2)}% · constant-product AMM
           </Text>
 
-          <TouchableOpacity activeOpacity={0.9} disabled={busy} onPress={() => run(async () => {
+          <TouchableOpacity activeOpacity={0.9} disabled={busy || sol <= 0} onPress={() => run(async () => {
             // Try a real on-chain SOL payment from the Privy wallet; if it can't
             // sign / has no SOL, the relay funds the SOL leg (devnet demo).
             const paidSig = config.treasury && canPay ? await paySol(config.treasury, sol) : null
@@ -242,7 +265,22 @@ const styles = StyleSheet.create({
   preview: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, paddingVertical: 6 },
   previewSol: { color: colors.textMuted, fontSize: 18, fontFamily: fonts.display },
   previewZorr: { color: colors.gold, fontSize: 20, fontFamily: fonts.display },
-  rateLine: { color: colors.textFaint, fontSize: 11, textAlign: 'center', fontFamily: fonts.mono, marginTop: -6 },
+  rateLine: { color: colors.textFaint, fontSize: 11, textAlign: 'center', fontFamily: fonts.mono, marginTop: 10 },
+
+  amountCard: { backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: 16 },
+  amountTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  fieldLabel: { color: colors.textFaint, fontSize: 10.5, letterSpacing: 1.4, fontWeight: '700' },
+  quickChips: { flexDirection: 'row', gap: 7 },
+  quickChip: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.04)' },
+  quickChipOn: { borderColor: colors.gold, backgroundColor: 'rgba(251,191,36,0.14)' },
+  quickChipText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
+  quickChipTextOn: { color: colors.gold },
+  amountRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 10 },
+  amountInput: { flex: 1, color: colors.text, fontSize: 36, fontFamily: fonts.display, padding: 0 },
+  amountUnit: { color: colors.textMuted, fontSize: 16, fontFamily: fonts.mono },
+  receiveRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 4, marginTop: 12 },
+  receiveLabel: { color: colors.textDim, fontSize: 13 },
+  receiveZorr: { color: colors.gold, fontSize: 20, fontFamily: fonts.display },
   cta: { paddingVertical: 16, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   ctaText: { color: '#1a1206', fontSize: 15, fontWeight: '800' },
   secondaryRow: { flexDirection: 'row', gap: 12 },

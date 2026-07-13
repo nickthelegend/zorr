@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { Bluetooth, Bot, Coins, Globe, Sparkles, Trophy, X } from 'lucide-react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import Animated, { FadeIn } from 'react-native-reanimated'
+import Animated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Aurora } from '../components/aurora'
@@ -30,13 +30,14 @@ import { requestVrfSeed } from '../features/chain/vrf'
 import { hexSeed, scopeFromString } from '../features/chain/vrf-seed'
 import { failHaptic, hitHaptic, winHaptic } from '../features/core/haptics'
 import { useGame } from '../features/game/game-store'
-import { cancelWager, reportWager, stakeWager, submitStats } from '../features/nft/nft'
+import { cancelWager, reportWager, soloSettle, soloStake, stakeWager, submitStats } from '../features/nft/nft'
 import { tileAreaKm2 } from '../features/run/use-run-session'
 import { colors, fonts, radius } from '../theme'
 
 type Mode = 'bot' | 'bt' | 'online'
-type Phase = 'connecting' | 'summoning' | 'battle' | 'result'
+type Phase = 'connecting' | 'summoning' | 'staking' | 'battle' | 'result'
 const TURN_SECONDS = 30
+const STAKE_ANIM_MS = 2100 // pot-staking animation length before a wagered duel
 
 export default function BattleArena() {
   const params = useLocalSearchParams<{ mode?: string; room?: string; stake?: string }>()
@@ -45,7 +46,9 @@ export default function BattleArena() {
   // Optional $ZORR wager (PvP only). Both players stake the same amount into a
   // shared room; the winner takes the pot. Online keys the pot by room code; BT
   // keys it by the agreed match seed (both peers derive the same one).
-  const stake = mode === 'bot' ? 0 : Math.max(0, Math.floor(Number(params.stake) || 0))
+  // Optional $ZORR wager on ALL modes now — AI included (the house matches your
+  // stake so both enter equal). 0 = a friendly, XP-only duel.
+  const stake = Math.max(0, Math.floor(Number(params.stake) || 0))
   const game = useGame()
   const mySeed = game.activeBeast
   // Your Guardian fights at your real progression level — every run's XP feeds
@@ -53,16 +56,17 @@ export default function BattleArena() {
   // over the wire, so PvP is level-aware too.
   const myLevel = game.level
 
-  const [phase, setPhase] = useState<Phase>(mode === 'bot' ? 'battle' : 'connecting')
-  // Bot battles start immediately (no flash of the connecting screen); PvP waits
-  // for the handshake to build the state.
-  const [state, setState] = useState<BattleState | null>(() => {
-    if (mode !== 'bot') return null
-    const botSeed = `bot-${Math.floor(Math.random() * 100000)}`
-    // Bot matches your level so the fight stays fair as you climb — progression
-    // shows in bigger stats on both sides, not a walkover.
-    return initBattle(generateBeast(mySeed, myLevel), generateBeast(botSeed, myLevel), botSeed)
-  })
+  // Stable AI identity so re-renders don't reshuffle the opponent Guardian. The
+  // bot matches your level so the fight stays fair as you climb.
+  const botSeedRef = useRef(`bot-${Math.floor(Math.random() * 100000)}`)
+  const buildBotBattle = useCallback(
+    () => initBattle(generateBeast(mySeed, myLevel), generateBeast(botSeedRef.current, myLevel), botSeedRef.current),
+    [mySeed, myLevel],
+  )
+  // A wagered AI duel opens on the pot-staking animation; a friendly one drops
+  // straight into battle. PvP always starts on the connecting handshake.
+  const [phase, setPhase] = useState<Phase>(mode === 'bot' ? (stake > 0 ? 'staking' : 'battle') : 'connecting')
+  const [state, setState] = useState<BattleState | null>(() => (mode === 'bot' && stake === 0 ? buildBotBattle() : null))
   const [status, setStatus] = useState('Getting ready…')
   const [left, setLeft] = useState(false) // opponent forfeited
   const [clock, setClock] = useState(TURN_SECONDS)
@@ -71,6 +75,7 @@ export default function BattleArena() {
   const [zorrWon, setZorrWon] = useState(0)
   const wagerRoomRef = useRef<string | null>(null) // set once staked, keys the pot
   const wagerReportedRef = useRef(false)
+  const aiStakedRef = useRef(false) // AI solo wager actually placed → gates the payout
 
   // Handshake + battle bookkeeping (refs so the stable message handler sees latest).
   const myNonce = useRef(1 + Math.floor(Math.random() * 1_000_000_000))
@@ -102,7 +107,6 @@ export default function BattleArena() {
       const guestLvl = iAmHost ? peer.level : myLevel
       mySideRef.current = iAmHost ? 'p1' : 'p2'
       setState(battleFromSeeds(hostSeed, hostLvl, guestSeed, guestLvl, matchSeedStr))
-      setPhase('battle')
       // Place the $ZORR wager once both peers reach the agreed seed — online keys
       // the pot by room code, BT by the shared seed, so both stake the same room.
       if (stake > 0 && !wagerRoomRef.current) {
@@ -113,6 +117,13 @@ export default function BattleArena() {
           .catch(() => {
             wagerRoomRef.current = null // stake failed (low balance / relay) → play friendly
           })
+      }
+      // With a stake, both peers watch the pot fill before the fight begins.
+      if (stake > 0) {
+        setPhase('staking')
+        setTimeout(() => setPhase('battle'), STAKE_ANIM_MS)
+      } else {
+        setPhase('battle')
       }
     },
     [mySeed, myLevel, stake, mode, room],
@@ -281,6 +292,33 @@ export default function BattleArena() {
   const sActive = state?.active
   const sOver = state?.over
 
+  // AI wager: play the pot animation, place the real solo stake (house matches
+  // you), then reveal the battle. aiStakedRef gates the win payout to a stake
+  // that actually landed (low balance / relay down → play friendly).
+  useEffect(() => {
+    if (mode !== 'bot' || phase !== 'staking') return
+    let alive = true
+    if (stake > 0) {
+      soloStake(stake)
+        .then((r) => {
+          if (alive) {
+            aiStakedRef.current = true
+            setPot(r.pot)
+          }
+        })
+        .catch(() => alive && setPot(stake * 2))
+    }
+    const t = setTimeout(() => {
+      if (!alive) return
+      setState(buildBotBattle())
+      setPhase('battle')
+    }, STAKE_ANIM_MS)
+    return () => {
+      alive = false
+      clearTimeout(t)
+    }
+  }, [mode, phase, stake, buildBotBattle])
+
   // Bot takes its turn automatically.
   useEffect(() => {
     if (mode !== 'bot' || !sActive || sOver || sActive === mySideRef.current) return
@@ -291,9 +329,10 @@ export default function BattleArena() {
     return () => clearTimeout(t)
   }, [sTurn, sActive, sOver, mode])
 
-  // My-turn countdown; auto-pick on timeout so a duel can't stall.
+  // My-turn countdown; auto-pick on timeout so a duel can't stall. Held until the
+  // pot-staking animation finishes so the clock doesn't bleed during it.
   useEffect(() => {
-    if (!sActive || sOver || sActive !== mySideRef.current) return
+    if (!sActive || sOver || sActive !== mySideRef.current || phase !== 'battle') return
     setClock(TURN_SECONDS)
     const started = Date.now()
     const id = setInterval(() => {
@@ -311,7 +350,7 @@ export default function BattleArena() {
       }
     }, 250)
     return () => clearInterval(id)
-  }, [sTurn, sActive, sOver])
+  }, [sTurn, sActive, sOver, phase])
 
   // Award + move to result exactly once.
   useEffect(() => {
@@ -343,6 +382,16 @@ export default function BattleArena() {
           }
         })()
       }
+      // AI duel: settle the solo pot — a win takes the whole pot (2× = net +stake).
+      if (mode === 'bot' && stake > 0 && aiStakedRef.current) {
+        soloSettle(stake, won)
+          .then((r) => {
+            if (won && r.won) setZorrWon(r.won)
+          })
+          .catch(() => {
+            if (won) setZorrWon(stake * 2)
+          })
+      }
       // Publish the fresh record to the global leaderboard (fire-and-forget).
       submitStats({
         name: game.name,
@@ -367,6 +416,22 @@ export default function BattleArena() {
   const connError = mode === 'bt' ? nearby.error : mode === 'online' ? socket.error : null
 
   // ---- Render ----
+  if (phase === 'staking') {
+    return (
+      <View style={styles.root}>
+        <Aurora />
+        <SafeAreaView style={styles.connectSafe}>
+          <TouchableOpacity style={styles.close} onPress={quit}>
+            <X color={colors.text} size={20} />
+          </TouchableOpacity>
+          <View style={styles.connectCenter}>
+            <PotStake stake={stake} foeLabel={mode === 'bot' ? 'AI' : 'Rival'} />
+          </View>
+        </SafeAreaView>
+      </View>
+    )
+  }
+
   if (phase === 'connecting' || phase === 'summoning' || !state) {
     const summoning = phase === 'summoning'
     return (
@@ -421,9 +486,13 @@ export default function BattleArena() {
             </Text>
             <Text style={styles.resultXp}>+{won ? WIN_XP : LOSE_XP} XP</Text>
             {zorrWon > 0 ? (
-              <Text style={styles.resultZorr}>+{zorrWon.toLocaleString()} ZORR</Text>
+              <Animated.View entering={FadeIn.delay(250)} style={styles.wonPill}>
+                <Coins color="#1a1206" size={22} />
+                <Text style={styles.wonAmt}>+{zorrWon.toLocaleString()}</Text>
+                <Text style={styles.wonUnit}>$ZORR</Text>
+              </Animated.View>
             ) : stake > 0 && !won && !left ? (
-              <Text style={styles.resultZorrLost}>−{stake.toLocaleString()} ZORR staked</Text>
+              <Text style={styles.resultZorrLost}>−{stake.toLocaleString()} $ZORR staked</Text>
             ) : null}
             <CTA label="Back to Arena" onPress={quit} style={{ alignSelf: 'stretch', marginHorizontal: 24, marginTop: 24 }} />
           </Animated.View>
@@ -557,6 +626,57 @@ function MoveButton({ ability, disabled, onPress }: { ability: Ability; disabled
   )
 }
 
+// Pre-fight ritual: both fighters slide an equal $ZORR coin into a central pot,
+// the coins drop in, and the pot pulses to the doubled total. Shown before every
+// wagered duel (AI + PvP) so the stakes read as real money on the line.
+function PotStake({ stake, foeLabel }: { stake: number; foeLabel: string }) {
+  const leftX = useSharedValue(-130)
+  const rightX = useSharedValue(130)
+  const coinOpacity = useSharedValue(0)
+  const coinDrop = useSharedValue(0) // 0 = coin in place, 1 = dropped into the pot
+  const potScale = useSharedValue(0.7)
+
+  useEffect(() => {
+    coinOpacity.value = withTiming(1, { duration: 350 })
+    leftX.value = withDelay(350, withTiming(0, { duration: 650, easing: Easing.in(Easing.cubic) }))
+    rightX.value = withDelay(350, withTiming(0, { duration: 650, easing: Easing.in(Easing.cubic) }))
+    coinDrop.value = withDelay(1000, withTiming(1, { duration: 340 }))
+    potScale.value = withSequence(
+      withTiming(1, { duration: 450, easing: Easing.out(Easing.back(1.6)) }),
+      withDelay(560, withTiming(1.3, { duration: 200 })),
+      withTiming(1, { duration: 260 }),
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const foeCoin = useAnimatedStyle(() => ({ opacity: coinOpacity.value * (1 - coinDrop.value), transform: [{ translateX: leftX.value }, { scale: 1 - coinDrop.value }] }))
+  const myCoin = useAnimatedStyle(() => ({ opacity: coinOpacity.value * (1 - coinDrop.value), transform: [{ translateX: rightX.value }, { scale: 1 - coinDrop.value }] }))
+  const potStyle = useAnimatedStyle(() => ({ transform: [{ scale: potScale.value }] }))
+
+  return (
+    <View style={styles.stakeWrap}>
+      <Text style={styles.stakeKicker}>WAGER</Text>
+      <Text style={styles.stakeTitle}>Into the pot</Text>
+      <Text style={styles.stakeSub}>Both fighters stake {stake.toLocaleString()} $ZORR — winner takes it all</Text>
+      <View style={styles.stakeStage}>
+        <Animated.View style={[styles.coin, styles.coinFoe, foeCoin]}>
+          <Text style={styles.coinAmt}>{stake.toLocaleString()}</Text>
+          <Text style={styles.coinWho}>{foeLabel}</Text>
+        </Animated.View>
+        <Animated.View style={[styles.potBig, potStyle]}>
+          <Coins color="#1a1206" size={26} />
+          <Text style={styles.potBigAmt}>{(stake * 2).toLocaleString()}</Text>
+          <Text style={styles.potBigWord}>POT</Text>
+        </Animated.View>
+        <Animated.View style={[styles.coin, styles.coinMine, myCoin]}>
+          <Text style={styles.coinAmt}>{stake.toLocaleString()}</Text>
+          <Text style={styles.coinWho}>You</Text>
+        </Animated.View>
+      </View>
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   safe: { flex: 1, paddingHorizontal: 16 },
@@ -623,6 +743,23 @@ const styles = StyleSheet.create({
   resultXp: { color: colors.gold, fontSize: 16, fontWeight: '700', marginTop: 8 },
   resultZorr: { color: colors.gold, fontFamily: fonts.display, fontSize: 22, marginTop: 6 },
   resultZorrLost: { color: colors.textDim, fontSize: 14, marginTop: 6 },
+  wonPill: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 14, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: colors.gold },
+  wonAmt: { color: '#1a1206', fontFamily: fonts.display, fontSize: 24 },
+  wonUnit: { color: '#3d2c07', fontSize: 12.5, fontWeight: '800', marginBottom: 2 },
+
+  stakeWrap: { alignItems: 'center', paddingHorizontal: 10 },
+  stakeKicker: { color: colors.gold, fontSize: 12, letterSpacing: 3, fontWeight: '800' },
+  stakeTitle: { color: colors.text, fontFamily: fonts.display, fontSize: 32, marginTop: 6 },
+  stakeSub: { color: colors.textDim, fontSize: 13, textAlign: 'center', marginTop: 8, lineHeight: 19, paddingHorizontal: 16 },
+  stakeStage: { alignItems: 'center', justifyContent: 'center', marginTop: 44, height: 120, alignSelf: 'stretch' },
+  coin: { position: 'absolute', top: 23, left: '50%', marginLeft: -37, width: 74, height: 74, borderRadius: 37, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
+  coinFoe: { borderColor: colors.enemy, backgroundColor: 'rgba(244,63,94,0.16)' },
+  coinMine: { borderColor: colors.territory, backgroundColor: 'rgba(52,227,184,0.16)' },
+  coinAmt: { color: colors.text, fontFamily: fonts.display, fontSize: 18 },
+  coinWho: { color: colors.textDim, fontSize: 10, fontWeight: '700', marginTop: 1 },
+  potBig: { width: 108, height: 108, borderRadius: 54, backgroundColor: colors.gold, alignItems: 'center', justifyContent: 'center', shadowColor: colors.gold, shadowOpacity: 0.7, shadowRadius: 26, shadowOffset: { width: 0, height: 0 }, elevation: 12 },
+  potBigAmt: { color: '#1a1206', fontFamily: fonts.display, fontSize: 26, marginTop: 2 },
+  potBigWord: { color: '#3d2c07', fontSize: 10, fontWeight: '900', letterSpacing: 2 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   potBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(251,191,36,0.4)', backgroundColor: 'rgba(251,191,36,0.1)' },
   potText: { color: colors.gold, fontSize: 13, fontWeight: '800', fontFamily: fonts.mono },

@@ -228,6 +228,18 @@ export async function cancelWager(room: string): Promise<{ refunded: number; bal
   return postJson('/zorr/wager/cancel', { room, owner })
 }
 
+/** Stake into a solo (vs-AI) pot — the house matches you, so pot = 2×. */
+export async function soloStake(amount: number): Promise<{ balance: number; pot: number; stake: number }> {
+  const owner = await getOwnerAddress()
+  return postJson('/zorr/wager/solo/stake', { owner, amount })
+}
+
+/** Settle a solo (vs-AI) wager: a win takes the whole pot (2×). */
+export async function soloSettle(amount: number, won: boolean): Promise<{ balance: number; won: number }> {
+  const owner = await getOwnerAddress()
+  return postJson('/zorr/wager/solo/settle', { owner, amount, won })
+}
+
 /** Redeem the fast-ledger balance to the device wallet's real on-chain $ZORR account. */
 export async function withdrawZorr(): Promise<{ signature: string; amount: number; explorer: string }> {
   const owner = await getOwnerAddress()

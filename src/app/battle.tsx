@@ -82,9 +82,9 @@ export default function BattleLobby() {
         {/* Modes */}
         <Animated.View entering={FadeInDown.delay(120)} style={styles.modes}>
           <CTA
-            label="Quick Duel · vs AI"
+            label={stake > 0 ? `Quick Duel · vs AI · stake ${stake}` : 'Quick Duel · vs AI'}
             icon={<Bot color="#04110C" size={20} />}
-            onPress={() => router.push('/battle-arena?mode=bot')}
+            onPress={() => router.push(`/battle-arena?mode=bot${q}`)}
           />
 
           <GhostBtn
