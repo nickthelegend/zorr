@@ -87,7 +87,8 @@ export async function deposit(amount: number): Promise<string> {
     if (base >= whole) break
     await new Promise((s) => setTimeout(s, 2000))
   }
-  return teeShield(kp, whole)
+  // teeShield delegates the FULL base ATA (handles repeat shields + stranded funds).
+  return teeShield(kp)
 }
 
 /**

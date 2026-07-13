@@ -68,15 +68,46 @@ async function signSend(conn: Connection, kp: Keypair, ixs: any[]): Promise<stri
 }
 
 /**
- * Shield: delegate `whole` $ZORR from the base ATA into the MagicBlock TEE
- * Ephemeral Rollup. Returns the base-layer delegation tx signature.
+ * Shield: delegate the wallet's FULL base-ATA $ZORR into the MagicBlock TEE
+ * Ephemeral Rollup. If some $ZORR is already delegated (a repeat shield), it's
+ * first pulled back to base so the whole amount can be re-delegated as one —
+ * you can't delegate more onto an already-delegated account, and this also
+ * sweeps in any $ZORR that a prior failed delegation left stranded on base.
  */
-export async function teeShield(kp: Keypair, whole: number, initVaultIfMissing = true): Promise<string> {
-  const ixs = await delegateSpl(kp.publicKey, ZORR_MINT, units(whole), {
+export async function teeShield(kp: Keypair): Promise<string> {
+  const ata = ataFor(kp.publicKey)
+  // If already delegated, undelegate + reclaim to base first.
+  let teeAmt = 0n
+  try {
+    const er = await teeConnection(kp)
+    teeAmt = BigInt((await er.getTokenAccountBalance(ata)).value.amount)
+  } catch {
+    // not delegated
+  }
+  if (teeAmt > 0n) {
+    const er = await teeConnection(kp)
+    const erSig = await signSend(er, kp, [undelegateIx(kp.publicKey, ZORR_MINT)])
+    try {
+      const c = await GetCommitmentSignature(erSig, er)
+      await base().confirmTransaction(c, 'confirmed')
+    } catch {
+      /* best-effort */
+    }
+    await signSend(base(), kp, await withdrawSpl(kp.publicKey, ZORR_MINT, teeAmt, { idempotent: false }))
+  }
+  // Delegate the full base-ATA balance (new funds + reclaimed + any stranded).
+  let baseAmt = 0n
+  try {
+    baseAmt = BigInt((await base().getTokenAccountBalance(ata)).value.amount)
+  } catch {
+    // no ATA
+  }
+  if (baseAmt <= 0n) throw new Error('nothing to shield')
+  const ixs = await delegateSpl(kp.publicKey, ZORR_MINT, baseAmt, {
     validator: TEE_VALIDATOR,
     idempotent: false,
     payer: kp.publicKey,
-    initVaultIfMissing,
+    initVaultIfMissing: true,
   })
   return signSend(base(), kp, ixs)
 }
@@ -120,14 +151,20 @@ export async function teeWithdraw(kp: Keypair): Promise<{ signature: string; who
   } catch {
     // best-effort; the withdraw below still needs the base account released
   }
-  const whole = Number(amount / BigInt(10 ** ZORR_DECIMALS))
   // 3. pull the tokens out of the escrow vault back to the base ATA.
+  let sig = erSig
   if (amount > 0n) {
-    const ixs = await withdrawSpl(kp.publicKey, ZORR_MINT, amount, { idempotent: false })
-    const sig = await signSend(base(), kp, ixs)
-    return { signature: sig, whole }
+    sig = await signSend(base(), kp, await withdrawSpl(kp.publicKey, ZORR_MINT, amount, { idempotent: false }))
   }
-  return { signature: erSig, whole }
+  // Return the FULL base-ATA balance now — reclaimed + any previously stranded —
+  // so the caller redeems everything back to the spendable ledger.
+  let full = 0n
+  try {
+    full = BigInt((await base().getTokenAccountBalance(ata)).value.amount)
+  } catch {
+    // no ATA
+  }
+  return { signature: sig, whole: Number(full / BigInt(10 ** ZORR_DECIMALS)) }
 }
 
 /** Transfer `whole` $ZORR from the PP wallet's base ATA to the treasury (real tx). */
