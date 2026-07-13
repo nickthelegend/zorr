@@ -7,7 +7,7 @@ import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'r
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { getOwnerAddress } from '../../features/nft/nft'
+import { clearPrivyOwner, getOwnerAddress } from '../../features/nft/nft'
 import { levelForXp, useGame } from '../../features/game/game-store'
 import { duelCount, formatKm, rankForLevel } from '../../features/game/stats'
 import { tileAreaKm2 } from '../../features/run/use-run-session'
@@ -59,10 +59,14 @@ export default function ProfileScreen() {
 
   const handleSignOut = async () => {
     await SecureStore.deleteItemAsync('zorr.entered')
+    // Drop the owner + local progress so the next account starts clean (otherwise
+    // a different login inherits the previous wallet's $ZORR, NFTs and level).
+    await clearPrivyOwner()
+    game.reset()
     try {
       await logout()
     } catch {
-      // guest session — nothing to log out of
+      // nothing to log out of
     }
     router.replace('/login')
   }
@@ -72,9 +76,14 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown} style={styles.headerRow}>
           <Text style={styles.brand}>Profile</Text>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/settings')}>
-            <HelpCircle color={colors.text} size={20} />
-          </TouchableOpacity>
+          <View style={styles.headerBtns}>
+            <TouchableOpacity style={[styles.iconBtn, styles.logoutBtn]} onPress={handleSignOut}>
+              <LogOut color={colors.enemy} size={19} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/settings')}>
+              <HelpCircle color={colors.text} size={20} />
+            </TouchableOpacity>
+          </View>
         </Animated.View>
 
         {/* Identity card */}
@@ -154,6 +163,8 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 100 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   brand: { color: colors.text, fontFamily: fonts.display, fontSize: 24 },
+  headerBtns: { flexDirection: 'row', gap: 10 },
+  logoutBtn: { borderColor: 'rgba(244,63,94,0.35)', backgroundColor: 'rgba(244,63,94,0.1)' },
   iconBtn: {
     width: 40,
     height: 40,

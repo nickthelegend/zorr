@@ -1,30 +1,51 @@
-import { Connection, Keypair, Transaction, VersionedTransaction } from '@solana/web3.js'
-import bs58 from 'bs58'
+import { Connection, Keypair, PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
+import { Buffer } from 'buffer'
 import * as SecureStore from 'expo-secure-store'
-import nacl from 'tweetnacl'
 
-// MagicBlock Private Payments (Private Ephemeral Rollups) client. The API builds
-// unsigned SPL transactions; we refresh the blockhash, sign with the device
-// wallet, and send to the right RPC (base, or the ephemeral rollup for private
-// txs). Verified end-to-end on devnet with $ZORR. Contract details live in the
-// magicblock-private-payments memory. Everything here is real — no mocks.
+// Zorr Private Payments — a REAL on-chain $ZORR shielded vault, run by the Zorr
+// relay (the same trust model as the $ZORR economy). MagicBlock's hosted devnet
+// TEE ("Private Ephemeral Rollups") is currently in mock mode — its challenge is
+// literally "MOCK: …" and its deposit tx never settles — so shielding through it
+// would move nothing. Instead we make it genuinely real:
+//   • Shield   = a real, locally-signed on-chain $ZORR transfer INTO the treasury
+//                vault, credited to a private off-chain balance.
+//   • Withdraw = a real treasury→owner on-chain transfer back out.
+//   • Send     = private (instant off-chain balance move — nothing on-chain) or
+//                public (real on-chain payout to the recipient).
+// Every shield/withdraw/public-send is verifiable on Solana Explorer. The private
+// balance lives in the relay ledger, redeemable on-chain at any time.
 
-export const PAY_API = process.env.EXPO_PUBLIC_PAYMENTS_API || 'https://api.magicblock.app'
-export const CLUSTER = 'devnet'
-export const BASE_RPC = 'https://rpc.magicblock.app/devnet'
+export const CLAIM_RELAY_URL = process.env.EXPO_PUBLIC_CLAIM_RELAY_URL || 'http://10.0.2.2:8790'
+export const DEVNET_RPC = 'https://api.devnet.solana.com'
 export const ZORR_MINT = 'G8iBAC71bd3ikwGQrKUcFUrZ2ZpSxXbXg42NncASUxAL'
 export const ZORR_DECIMALS = 9
 
-const OWNER_SECRET_KEY = 'zorr.owner.secret' // 32-byte Ed25519 seed (shared with nft.ts)
-const tokenKey = (addr: string) => `magicblock.privtoken.${addr}`
+const LEGACY_OWNER_KEY = 'zorr.owner.secret' // pre-Privy shared device seed (adopted if present)
+const PAY_SECRET_KEY = 'zorr.pay.secret' // dedicated Private-Payments Ed25519 seed
 
-// ---- device keypair (web3.js) — same seed kit uses, so the address matches ----
+const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+const ATA_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL')
+
+/** Associated token account for (owner, mint) — derived without @solana/spl-token. */
+function ataFor(owner: PublicKey, mint: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync([owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()], ATA_PROGRAM_ID)[0]
+}
+
+// ---- Private-Payments keypair (web3.js) ----
+// Private Payments keeps its OWN raw on-device Ed25519 key (the Privy embedded
+// wallet never exposes a raw key, so it can't sign the shield transfer). Auto-
+// created on first use and NOT wiped on sign-out, so the shielded vault survives
+// logout. Fund its base ATA with real $ZORR via fundPaymentsWallet() before shielding.
 let kpCache: Keypair | null = null
 async function keypair(): Promise<Keypair> {
   if (kpCache) return kpCache
-  const stored = await SecureStore.getItemAsync(OWNER_SECRET_KEY)
-  if (!stored) throw new Error('No device wallet on this device yet.')
-  kpCache = Keypair.fromSeed(Uint8Array.from(JSON.parse(stored) as number[]))
+  let seed = await SecureStore.getItemAsync(PAY_SECRET_KEY)
+  if (!seed) {
+    const legacy = await SecureStore.getItemAsync(LEGACY_OWNER_KEY)
+    seed = legacy ?? JSON.stringify([...crypto.getRandomValues(new Uint8Array(32))])
+    await SecureStore.setItemAsync(PAY_SECRET_KEY, seed)
+  }
+  kpCache = Keypair.fromSeed(Uint8Array.from(JSON.parse(seed) as number[]))
   return kpCache
 }
 
@@ -32,150 +53,140 @@ export async function paymentsOwner(): Promise<string> {
   return (await keypair()).publicKey.toBase58()
 }
 
-// ---- API helpers ----
-const q = (p: Record<string, string>) => new URLSearchParams(p).toString()
+// ---- relay helpers ----
 const errMsg = (j: unknown, fallback: string) => {
   const e = (j as { error?: unknown })?.error
-  if (typeof e === 'string') return e
-  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)
-  return fallback
+  return typeof e === 'string' ? e : fallback
 }
-async function jget<T = any>(path: string, token?: string): Promise<T> {
-  const r = await fetch(`${PAY_API}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+async function rget<T = any>(path: string): Promise<T> {
+  const r = await fetch(`${CLAIM_RELAY_URL}${path}`)
   const j = await r.json().catch(() => null)
   if (!r.ok || (j && (j as { error?: unknown }).error)) throw new Error(errMsg(j, `GET ${path} ${r.status}`))
   return j as T
 }
-async function jpost<T = any>(path: string, body: unknown, token?: string): Promise<T> {
-  const r = await fetch(`${PAY_API}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify(body),
-  })
+async function rpost<T = any>(path: string, body: unknown): Promise<T> {
+  const r = await fetch(`${CLAIM_RELAY_URL}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   const j = await r.json().catch(() => null)
   if (!r.ok || (j && (j as { error?: unknown }).error)) throw new Error(errMsg(j, `POST ${path} ${r.status}`))
   return j as T
 }
 
-// ---- auth (challenge → sign → bearer token) ----
-export async function refreshPrivateToken(): Promise<string> {
-  const kp = await keypair()
-  const addr = kp.publicKey.toBase58()
-  const { challenge } = await jget<{ challenge: string }>(`/v1/spl/challenge?${q({ pubkey: addr, cluster: CLUSTER })}`)
-  const sig = nacl.sign.detached(new TextEncoder().encode(challenge), kp.secretKey)
-  const { token } = await jpost<{ token: string }>('/v1/spl/login', { pubkey: addr, challenge, signature: bs58.encode(sig) })
-  await SecureStore.setItemAsync(tokenKey(addr), token)
-  return token
-}
-async function getToken(): Promise<string> {
-  const addr = (await keypair()).publicKey.toBase58()
-  return (await SecureStore.getItemAsync(tokenKey(addr))) || refreshPrivateToken()
+// The treasury vault owner (shield destination) — cached from the relay config.
+let treasuryCache: string | null = null
+async function treasuryOwner(): Promise<string> {
+  if (treasuryCache) return treasuryCache
+  const cfg = await rget<{ treasury?: string; mint?: string }>('/zorr/config')
+  if (!cfg.treasury) throw new Error('relay has no treasury configured')
+  treasuryCache = cfg.treasury
+  return treasuryCache
 }
 
 // ---- balances ----
-export type SplBalance = { address: string; mint: string; ata: string; location: 'base' | 'ephemeral'; balance: string }
+export type SplBalance = { balance: string }
+type ShieldState = { owner: string; shielded: number; base: number }
 
-export async function fetchBaseBalance(mint = ZORR_MINT): Promise<SplBalance> {
-  const addr = await paymentsOwner()
-  return jget(`/v1/spl/balance?${q({ address: addr, mint, cluster: CLUSTER })}`)
+async function shieldState(): Promise<ShieldState> {
+  const owner = await paymentsOwner()
+  return rget<ShieldState>(`/zorr/shield/balance?owner=${owner}`)
 }
-export async function fetchPrivateBalance(mint = ZORR_MINT): Promise<SplBalance> {
-  const addr = await paymentsOwner()
-  const path = `/v1/spl/private-balance?${q({ address: addr, mint, cluster: CLUSTER })}`
-  try {
-    return await jget(path, await getToken())
-  } catch {
-    // token likely expired → re-login once
-    return jget(path, await refreshPrivateToken())
-  }
+/** Public base balance = the shielded wallet's REAL on-chain $ZORR (in base units). */
+export async function fetchBaseBalance(): Promise<SplBalance> {
+  const s = await shieldState()
+  return { balance: String(Math.round(s.base * 10 ** ZORR_DECIMALS)) }
 }
-
-export async function isMintInitialized(mint = ZORR_MINT): Promise<boolean> {
-  const j = await jget<{ initialized?: boolean }>(`/v1/spl/is-mint-initialized?${q({ mint, cluster: CLUSTER })}`)
-  return !!j.initialized
+/** Shielded (private) balance held in the Zorr vault (in base units). */
+export async function fetchPrivateBalance(): Promise<SplBalance> {
+  const s = await shieldState()
+  return { balance: String(Math.round(s.shielded * 10 ** ZORR_DECIMALS)) }
 }
 
-// ---- build → refresh blockhash → sign → send (the verified flow) ----
-type BuiltTx = {
-  version?: 'legacy' | number
-  transactionBase64: string
-  sendTo?: 'base' | 'ephemeral'
-  sendRpcEndpoint?: string
-}
-async function signAndSend(built: BuiltTx, token?: string): Promise<string> {
+// ---- shield: real on-chain $ZORR transfer (owner → treasury vault), then credit ----
+async function signedTransferToTreasury(whole: number): Promise<string> {
   const kp = await keypair()
-  const ephemeral = built.sendTo === 'ephemeral' || !!built.sendRpcEndpoint
-  const url = built.sendRpcEndpoint || BASE_RPC
-  const conn = new Connection(url, {
-    commitment: 'confirmed',
-    ...(ephemeral && token ? { httpHeaders: { Authorization: `Bearer ${token}` } } : {}),
+  const conn = new Connection(DEVNET_RPC, 'confirmed')
+  const mint = new PublicKey(ZORR_MINT)
+  const src = ataFor(kp.publicKey, mint)
+  const dst = ataFor(new PublicKey(await treasuryOwner()), mint)
+
+  const data = Buffer.alloc(9)
+  data.writeUInt8(3, 0) // SPL Token: Transfer
+  data.writeBigUInt64LE(BigInt(whole) * BigInt(10 ** ZORR_DECIMALS), 1)
+  const ix = new TransactionInstruction({
+    programId: TOKEN_PROGRAM_ID,
+    keys: [
+      { pubkey: src, isSigner: false, isWritable: true },
+      { pubkey: dst, isSigner: false, isWritable: true },
+      { pubkey: kp.publicKey, isSigner: true, isWritable: false },
+    ],
+    data,
   })
-  // Ephemeral txs MUST use a fresh blockhash from their rollup RPC, or the send
-  // fails with "Blockhash not found". Base txs are fine to refresh too.
   const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed')
-  const buf = Buffer.from(built.transactionBase64, 'base64')
-  let signed: Uint8Array
-  if (built.version === 'legacy') {
-    const tx = Transaction.from(buf)
-    tx.recentBlockhash = blockhash
-    tx.sign(kp)
-    signed = tx.serialize()
-  } else {
-    const tx = VersionedTransaction.deserialize(buf)
-    tx.message.recentBlockhash = blockhash
-    tx.sign([kp])
-    signed = tx.serialize()
-  }
-  const sig = await conn.sendRawTransaction(signed, { skipPreflight: true, maxRetries: 3 })
+  const tx = new Transaction()
+  tx.feePayer = kp.publicKey
+  tx.recentBlockhash = blockhash
+  tx.add(ix)
+  tx.sign(kp)
+  const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 })
   await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed').catch(() => {})
   return sig
 }
 
-/** One-time setup of a mint's private transfer queue (idempotent). */
-export async function initializeMint(mint = ZORR_MINT): Promise<string> {
-  const payer = await paymentsOwner()
-  return signAndSend(await jpost('/v1/spl/initialize-mint', { payer, mint, cluster: CLUSTER }))
-}
-
-/** Deposit base → private ephemeral rollup. `amount` is base units. */
-export async function deposit(amount: number, mint = ZORR_MINT): Promise<string> {
+/** Shield: move on-chain $ZORR into the private vault. `amount` is base units. */
+export async function deposit(amount: number, _mint = ZORR_MINT): Promise<string> {
+  const whole = Math.max(1, Math.floor(amount / 10 ** ZORR_DECIMALS))
   const owner = await paymentsOwner()
-  return signAndSend(
-    await jpost('/v1/spl/deposit', { owner, cluster: CLUSTER, mint, amount, initIfMissing: true, initAtasIfMissing: true, initVaultIfMissing: true, idempotent: true }),
-  )
+  const sig = await signedTransferToTreasury(whole)
+  await rpost('/zorr/shield/deposit', { owner, sig, amount: whole })
+  return sig
 }
 
-/** Withdraw private ephemeral → base. `amount` is base units. */
-export async function withdraw(amount: number, mint = ZORR_MINT): Promise<string> {
+/** Withdraw: move shielded $ZORR back out to the public base balance (real tx). */
+export async function withdraw(amount: number, _mint = ZORR_MINT): Promise<string> {
+  const whole = Math.max(1, Math.floor(amount / 10 ** ZORR_DECIMALS))
   const owner = await paymentsOwner()
-  return signAndSend(
-    await jpost('/v1/spl/withdraw', { owner, cluster: CLUSTER, mint, amount, initIfMissing: true, initAtasIfMissing: true, idempotent: true }),
-  )
+  const r = await rpost<{ signature: string }>('/zorr/shield/withdraw', { owner, amount: whole })
+  return r.signature
 }
 
-/** Public or private transfer. Private = delayed + split scheduled transfer on the rollup. */
+/** Send shielded $ZORR — private (instant off-chain) or public (real on-chain payout). */
 export async function transfer(opts: {
   to: string
   amount: number // base units
   visibility: 'public' | 'private'
-  fromBalance: 'base' | 'ephemeral'
-  toBalance: 'base' | 'ephemeral'
+  fromBalance?: 'base' | 'ephemeral'
+  toBalance?: 'base' | 'ephemeral'
   split?: number
   mint?: string
 }): Promise<string> {
+  const whole = Math.max(1, Math.floor(opts.amount / 10 ** ZORR_DECIMALS))
   const from = await paymentsOwner()
-  const mint = opts.mint || ZORR_MINT
-  const token = opts.fromBalance === 'ephemeral' ? await getToken() : undefined
-  const body: Record<string, unknown> = {
-    from, to: opts.to, mint, cluster: CLUSTER, amount: opts.amount,
-    visibility: opts.visibility, fromBalance: opts.fromBalance, toBalance: opts.toBalance,
+  const r = await rpost<{ signature?: string; private?: boolean }>('/zorr/shield/send', {
+    from,
+    to: opts.to,
+    amount: whole,
+    private: opts.visibility === 'private',
+  })
+  return r.signature ?? `private:${whole}` // private sends settle off-chain (no on-chain sig)
+}
+
+// ---- fund the Private-Payments wallet with real on-chain $ZORR ----
+/**
+ * Mint real on-chain $ZORR into this device's Private-Payments base ATA
+ * (treasury → owner, via the relay). Gives the shielded wallet genuine tokens to
+ * shield into the private vault. Self-limits server-side.
+ */
+export async function fundPaymentsWallet(amount = 50): Promise<{ funded: boolean; signature?: string; amount?: number; balance?: number; note?: string; error?: string }> {
+  const owner = await paymentsOwner()
+  try {
+    const r = await fetch(`${CLAIM_RELAY_URL}/zorr/onchain-faucet`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ owner, amount }),
+    })
+    return await r.json()
+  } catch {
+    return { funded: false, error: 'relay unreachable' }
   }
-  if (opts.visibility === 'private') {
-    body.split = opts.split ?? 2
-    body.minDelayMs = '0'
-    body.maxDelayMs = '1000'
-  }
-  return signAndSend(await jpost('/v1/spl/transfer', body, token), token)
 }
 
 // ---- unit helpers ----

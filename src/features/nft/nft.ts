@@ -28,6 +28,21 @@ export function setPrivyOwner(addr: string | null | undefined) {
   }
 }
 
+/**
+ * Drop the current owner entirely — called on sign-out so the NEXT account
+ * doesn't inherit the previous wallet. Without this, a different login would
+ * still resolve to the stale persisted Privy address (same $ZORR, same NFTs).
+ */
+export async function clearPrivyOwner() {
+  privyOwner = null
+  ownerPromise = null
+  await Promise.allSettled([
+    SecureStore.deleteItemAsync(PRIVY_OWNER_KEY),
+    SecureStore.deleteItemAsync(OWNER_SECRET_KEY),
+    SecureStore.deleteItemAsync(LEGACY_OWNER_KEY),
+  ])
+}
+
 function loadOwner() {
   if (!ownerPromise) {
     ownerPromise = (async () => {

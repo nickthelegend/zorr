@@ -76,8 +76,11 @@ zorr.wagers ||= {}
 zorr.history ||= {} // owner -> [{ t, amount, sol?, sig?, ts }]  (newest first)
 zorr.amm ||= { ...AMM_SEED } // constant-product reserves
 zorr.swapSigs ||= {} // consumed SOL-payment signatures (anti-replay for real swaps)
+zorr.shielded ||= {} // owner -> private (shielded-vault) $ZORR balance
 const saveZorr = () => fs.writeFileSync(zorrPath, JSON.stringify(zorr, null, 2))
 const isPubkey = (o) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(String(o || ''))
+const shBal = (o) => Math.max(0, Math.floor(zorr.shielded[o] || 0))
+const shSet = (o, v) => { zorr.shielded[o] = Math.max(0, Math.floor(v)); saveZorr() }
 const zBal = (o) => Math.max(0, Math.floor(zorr.balances[o] || 0))
 const zSet = (o, v) => {
   zorr.balances[o] = Math.max(0, Math.floor(v))
@@ -410,6 +413,38 @@ async function zorrWithdraw(owner) {
   return { status: 200, body: { signature: sig, amount, account: dst.address.toBase58(), explorer: `https://explorer.solana.com/tx/${sig}?cluster=devnet` } }
 }
 
+// Mint real on-chain $ZORR into any wallet's ATA (treasury → owner). Used by the
+// Private Payments screen so its dedicated on-device wallet has genuine on-chain
+// tokens to shield into the MagicBlock private rollup. Self-limiting: skips wallets
+// that already hold on-chain $ZORR so it can't be drained into an infinite mint.
+async function zorrOnchainFaucet(owner, amount) {
+  if (!token) return { status: 503, body: { error: '$ZORR token not launched' } }
+  if (!isPubkey(owner)) return { status: 400, body: { error: 'invalid owner' } }
+  const grant = Math.min(Math.max(Math.floor(Number(amount) || 50), 1), 200)
+  const conn = new web3.Connection(RPC, 'confirmed')
+  const mint = new web3.PublicKey(token.mint)
+  const ownerPk = new web3.PublicKey(owner)
+  try {
+    const cur = await conn.getParsedTokenAccountsByOwner(ownerPk, { mint })
+    const bal = cur.value.reduce((s, a) => s + (a.account.data.parsed.info.tokenAmount.uiAmount || 0), 0)
+    if (bal >= 100) return { status: 200, body: { funded: false, balance: Math.floor(bal), note: 'wallet already funded' } }
+  } catch {}
+  const src = await getOrCreateAssociatedTokenAccount(conn, kp, mint, kp.publicKey)
+  const dst = await getOrCreateAssociatedTokenAccount(conn, kp, mint, ownerPk)
+  const sig = await splTransfer(conn, kp, src.address, dst.address, kp, BigInt(grant) * BigInt(10 ** token.decimals))
+  // Top up a little SOL so this dedicated wallet can pay its own shield tx fee
+  // (it holds no SOL of its own, unlike the Privy game wallet).
+  try {
+    const sol = await conn.getBalance(ownerPk)
+    if (sol < 5_000_000) {
+      const gasTx = new web3.Transaction().add(web3.SystemProgram.transfer({ fromPubkey: kp.publicKey, toPubkey: ownerPk, lamports: 10_000_000 }))
+      await web3.sendAndConfirmTransaction(conn, gasTx, [kp], { commitment: 'confirmed' })
+    }
+  } catch {}
+  zLog(owner, { t: 'onchain-faucet', amount: grant, sig })
+  return { status: 200, body: { funded: true, signature: sig, amount: grant, account: dst.address.toBase58(), explorer: `https://explorer.solana.com/tx/${sig}?cluster=devnet` } }
+}
+
 // The player's REAL on-chain $ZORR balance (sum of their token accounts). This is
 // where withdrawn ZORR lands — the app shows it next to the spendable ledger so a
 // withdraw visibly moves tokens into the wallet instead of looking like a loss.
@@ -461,6 +496,90 @@ async function zorrDeposit(owner, amount, sig) {
   zSet(owner, zBal(owner) + amt)
   zLog(owner, { t: 'deposit', amount: amt, sig })
   return { status: 200, body: { balance: zBal(owner), deposited: amt, sig } }
+}
+
+// ---- Private Payments: real on-chain $ZORR shielded vault ----
+// MagicBlock's hosted devnet TEE is in mock mode (its challenge is literally
+// "MOCK: …" and its deposit tx never settles), so shielding through it moves
+// nothing. This makes it genuinely real via the treasury vault: shield/withdraw
+// are real on-chain transfers (Explorer-verifiable); the private balance is a
+// relay ledger, redeemable on-chain any time; private sends settle off-chain.
+
+// Shield: credit the private vault after a real, signed on-chain transfer of
+// `amount` $ZORR from `owner` INTO the treasury (verified by the treasury delta).
+async function shieldDeposit(owner, sig, amount) {
+  if (!token) return { status: 503, body: { error: '$ZORR token not launched' } }
+  if (!isPubkey(owner)) return { status: 400, body: { error: 'invalid owner' } }
+  const amt = Math.floor(Number(amount) || 0)
+  if (amt <= 0) return { status: 400, body: { error: 'amount must be > 0' } }
+  if (!sig) return { status: 400, body: { error: 'signed shield tx required' } }
+  if (zorr.swapSigs[sig]) return { status: 409, body: { error: 'shield already credited' } }
+  const v = await verifyZorrDeposit(sig, amt)
+  if (!v.ok) return { status: 402, body: { error: v.error } }
+  zorr.swapSigs[sig] = { owner, shield: amt, at: Date.now() }
+  shSet(owner, shBal(owner) + amt)
+  zLog(owner, { t: 'shield', amount: amt, sig })
+  return { status: 200, body: { shielded: shBal(owner), amount: amt, sig, explorer: `https://explorer.solana.com/tx/${sig}?cluster=devnet` } }
+}
+
+// Withdraw: debit the vault and send `amount` $ZORR treasury→owner on-chain (real tx).
+async function shieldWithdraw(owner, amount) {
+  if (!token) return { status: 503, body: { error: '$ZORR token not launched' } }
+  if (!isPubkey(owner)) return { status: 400, body: { error: 'invalid owner' } }
+  const amt = Math.floor(Number(amount) || 0)
+  if (amt <= 0) return { status: 400, body: { error: 'amount must be > 0' } }
+  if (shBal(owner) < amt) return { status: 400, body: { error: 'insufficient shielded balance' } }
+  const conn = new web3.Connection(RPC, 'confirmed')
+  const mint = new web3.PublicKey(token.mint)
+  const src = await getOrCreateAssociatedTokenAccount(conn, kp, mint, kp.publicKey)
+  const dst = await getOrCreateAssociatedTokenAccount(conn, kp, mint, new web3.PublicKey(owner))
+  const sig = await splTransfer(conn, kp, src.address, dst.address, kp, BigInt(amt) * BigInt(10 ** token.decimals))
+  shSet(owner, shBal(owner) - amt)
+  zLog(owner, { t: 'unshield', amount: amt, sig })
+  return { status: 200, body: { shielded: shBal(owner), amount: amt, signature: sig, explorer: `https://explorer.solana.com/tx/${sig}?cluster=devnet` } }
+}
+
+// Send shielded $ZORR. Private = instant off-chain move that lands in the
+// recipient's SPENDABLE game balance (what a player actually sees — the recipient
+// is a wallet address, and no other device's private vault is keyed by it, so
+// crediting the spendable ledger is the only place the payment is visible/usable).
+// Public = real treasury→recipient on-chain tx (lands in their on-chain ATA).
+async function shieldSend(from, to, amount, priv) {
+  if (!isPubkey(from) || !isPubkey(to)) return { status: 400, body: { error: 'invalid address' } }
+  if (from === to) return { status: 400, body: { error: 'cannot send to yourself' } }
+  const amt = Math.floor(Number(amount) || 0)
+  if (amt <= 0) return { status: 400, body: { error: 'amount must be > 0' } }
+  if (shBal(from) < amt) return { status: 400, body: { error: 'insufficient shielded balance' } }
+  if (priv) {
+    shSet(from, shBal(from) - amt)
+    zSet(to, zBal(to) + amt) // deliver to the recipient's spendable game balance
+    zLog(from, { t: 'private-send', amount: amt, to })
+    zLog(to, { t: 'private-recv', amount: amt, from })
+    return { status: 200, body: { shielded: shBal(from), amount: amt, to, private: true } }
+  }
+  if (!token) return { status: 503, body: { error: '$ZORR token not launched' } }
+  const conn = new web3.Connection(RPC, 'confirmed')
+  const mint = new web3.PublicKey(token.mint)
+  const src = await getOrCreateAssociatedTokenAccount(conn, kp, mint, kp.publicKey)
+  const dst = await getOrCreateAssociatedTokenAccount(conn, kp, mint, new web3.PublicKey(to))
+  const sig = await splTransfer(conn, kp, src.address, dst.address, kp, BigInt(amt) * BigInt(10 ** token.decimals))
+  shSet(from, shBal(from) - amt)
+  zLog(from, { t: 'public-send', amount: amt, to, sig })
+  return { status: 200, body: { shielded: shBal(from), amount: amt, to, signature: sig, explorer: `https://explorer.solana.com/tx/${sig}?cluster=devnet` } }
+}
+
+// Shielded (private) + public base balance for a wallet.
+async function shieldStateOf(owner) {
+  if (!isPubkey(owner)) return { status: 400, body: { error: 'invalid owner' } }
+  let base = 0
+  try {
+    if (token) {
+      const conn = new web3.Connection(RPC, 'confirmed')
+      const res = await conn.getParsedTokenAccountsByOwner(new web3.PublicKey(owner), { mint: new web3.PublicKey(token.mint) })
+      base = res.value.reduce((s, a) => s + (a.account.data.parsed.info.tokenAmount.uiAmount || 0), 0)
+    }
+  } catch {}
+  return { status: 200, body: { owner, shielded: shBal(owner), base: Math.floor(base) } }
 }
 
 function send(res, status, body) {
@@ -581,6 +700,21 @@ http
     }
     if (req.method === 'POST' && url.pathname === '/zorr/wager/solo/settle') {
       return withBody(req, res, (b) => { const r = zorrSoloSettle(b.owner, b.amount, b.won); send(res, r.status, r.body) })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/onchain-faucet') {
+      return withBody(req, res, async (b) => { const r = await zorrOnchainFaucet(b.owner, b.amount); send(res, r.status, r.body) })
+    }
+    if (req.method === 'GET' && url.pathname === '/zorr/shield/balance') {
+      return shieldStateOf(url.searchParams.get('owner')).then((r) => send(res, r.status, r.body)).catch((e) => send(res, 500, { error: String(e).slice(0, 120) }))
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/shield/deposit') {
+      return withBody(req, res, async (b) => { const r = await shieldDeposit(b.owner, b.sig, b.amount); send(res, r.status, r.body) })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/shield/withdraw') {
+      return withBody(req, res, async (b) => { const r = await shieldWithdraw(b.owner, b.amount); send(res, r.status, r.body) })
+    }
+    if (req.method === 'POST' && url.pathname === '/zorr/shield/send') {
+      return withBody(req, res, async (b) => { const r = await shieldSend(b.from, b.to, b.amount, b.private); send(res, r.status, r.body) })
     }
     if (req.method === 'POST' && url.pathname === '/zorr/withdraw') {
       return withBody(req, res, async (b) => { const r = await zorrWithdraw(b.owner); send(res, r.status, r.body) })

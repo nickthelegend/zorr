@@ -25,6 +25,7 @@ import {
   fetchBaseBalance,
   fetchPrivateBalance,
   fromBaseUnits,
+  fundPaymentsWallet,
   paymentsOwner,
   toBaseUnits,
   transfer,
@@ -47,6 +48,7 @@ export default function PaymentsScreen() {
   const [amount, setAmount] = useState('')
   const [to, setTo] = useState('')
   const [busy, setBusy] = useState(false)
+  const [funding, setFunding] = useState(false)
   const [result, setResult] = useState<Result>(null)
 
   const refresh = useCallback(async () => {
@@ -95,7 +97,9 @@ export default function PaymentsScreen() {
         label = 'Public send'
         sig = await transfer({ to: to.trim(), amount: units, visibility: 'public', fromBalance: 'base', toBalance: 'base' })
       }
-      setResult({ ok: true, text: `${label} confirmed`, sig })
+      // Private sends settle off-chain (no on-chain signature) — don't offer a broken explorer link.
+      const onchainSig = sig.startsWith('private:') ? undefined : sig
+      setResult({ ok: true, text: `${label} confirmed`, sig: onchainSig })
       playSfx(mode === 'shield' ? 'shield' : 'coin')
       pushNote({ kind: 'swap', title: `${label} confirmed`, body: `${fmt(amt)} $ZORR` })
       setAmount('')
@@ -106,6 +110,27 @@ export default function PaymentsScreen() {
       setBusy(false)
     }
   }
+
+  const fund = async () => {
+    setFunding(true)
+    setResult(null)
+    try {
+      const r = await fundPaymentsWallet(50)
+      if (r.funded) {
+        setResult({ ok: true, text: `Funded ${r.amount} $ZORR on-chain`, sig: r.signature })
+        playSfx('coin')
+        pushNote({ kind: 'swap', title: 'Test $ZORR funded', body: `${r.amount} $ZORR ready to shield` })
+      } else {
+        setResult({ ok: !r.error, text: r.note || r.error || 'Wallet already funded' })
+      }
+      setTimeout(refresh, 2500)
+    } finally {
+      setFunding(false)
+    }
+  }
+
+  // Offer real on-chain funding once balances have loaded and the base wallet is empty.
+  const needsFunds = !loading && (base == null || base < 1)
 
   const setPct = (pct: number) => {
     if (sourceBal == null) return
@@ -140,7 +165,7 @@ export default function PaymentsScreen() {
               <View style={styles.heroTop}>
                 <View style={styles.heroBadge}>
                   <EyeOff color={colors.primary} size={13} />
-                  <Text style={styles.heroBadgeText}>SHIELDED · PRIVATE ROLLUP</Text>
+                  <Text style={styles.heroBadgeText}>SHIELDED · PRIVATE VAULT</Text>
                 </View>
                 <TouchableOpacity onPress={refresh} hitSlop={10}>
                   <RefreshCw color={colors.textMuted} size={15} style={loading ? { opacity: 0.4 } : undefined} />
@@ -158,6 +183,23 @@ export default function PaymentsScreen() {
             </LinearGradient>
           </Animated.View>
 
+          {/* Fund the shielded wallet with real on-chain $ZORR when it's empty */}
+          {needsFunds ? (
+            <Animated.View entering={FadeIn}>
+              <TouchableOpacity activeOpacity={0.9} onPress={fund} disabled={funding} style={styles.fundCard}>
+                {funding ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <ArrowDownToLine color={colors.primary} size={17} />
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.fundTitle}>{funding ? 'Funding wallet…' : 'Get test $ZORR'}</Text>
+                  <Text style={styles.fundSub}>Mint 50 real on-chain $ZORR to this wallet to shield.</Text>
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          ) : null}
+
           {/* Mode segmented control */}
           <View style={styles.segment}>
             <Seg active={mode === 'shield'} icon={<ArrowDownToLine size={16} color={mode === 'shield' ? '#04110C' : colors.textMuted} />} label="Shield" onPress={() => setMode('shield')} />
@@ -167,10 +209,10 @@ export default function PaymentsScreen() {
 
           <Text style={styles.flowHint}>
             {mode === 'shield'
-              ? 'Move $ZORR from your public balance into the private MagicBlock rollup.'
+              ? 'Move on-chain $ZORR into your private vault — a real transfer, redeemable anytime.'
               : mode === 'withdraw'
-                ? 'Move shielded $ZORR back out to your public base balance.'
-                : 'Send $ZORR to any wallet — privately (delayed + split) or as a normal public transfer.'}
+                ? 'Redeem shielded $ZORR back to your public on-chain balance (real transfer).'
+                : 'Send shielded $ZORR — privately (instant, off-chain) or as a real on-chain payout.'}
           </Text>
 
           {/* Amount */}
@@ -253,7 +295,7 @@ export default function PaymentsScreen() {
           ) : null}
 
           <Text style={styles.foot}>
-            Powered by MagicBlock Private Ephemeral Rollups · Solana devnet.{owner ? `\n${owner.slice(0, 6)}…${owner.slice(-6)}` : ''}
+            Real on-chain $ZORR vault · Solana devnet · redeemable anytime.{owner ? `\n${owner.slice(0, 6)}…${owner.slice(-6)}` : ''}
           </Text>
         </ScrollView>
       </SafeAreaView>
@@ -301,6 +343,10 @@ const styles = StyleSheet.create({
   heroBase: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
   heroBaseText: { color: colors.textDim, fontSize: 12.5, flex: 1 },
   heroBaseVal: { color: colors.textMuted, fontSize: 13, fontFamily: fonts.mono },
+
+  fundCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primaryBorder, borderRadius: radius.lg, padding: 14, marginTop: 16 },
+  fundTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  fundSub: { color: colors.textDim, fontSize: 11.5, marginTop: 2, lineHeight: 16 },
 
   segment: { flexDirection: 'row', gap: 6, backgroundColor: colors.surface2, borderRadius: 14, padding: 5, marginTop: 18 },
   seg: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 10 },
